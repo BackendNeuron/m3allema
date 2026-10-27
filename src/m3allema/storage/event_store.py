@@ -7,11 +7,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, func, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from m3allema.domain.events import AgentEvent, RunFinished, RunStarted
-from m3allema.storage.models import Base, EventRow, RunRow
+from m3allema.storage.database import Database
+from m3allema.storage.models import EventRow, RunRow
 from m3allema.storage.serialization import event_kind, event_to_payload
 
 # Streaming text fragments are reconstructable from the completed turn, so
@@ -24,6 +25,7 @@ class RunRecord:
     """A stored run, as returned to interfaces."""
 
     id: str
+    conversation_id: str
     task: str
     model: str
     status: str
@@ -31,6 +33,7 @@ class RunRecord:
     finished_at: datetime | None
     input_tokens: int
     output_tokens: int
+    cost_usd: float | None
     steps: int
 
 
@@ -49,16 +52,10 @@ class EventStore:
 
     Implements the agent's event-sink interface, so the agent loop can record
     events without knowing anything about databases.
-
-    Args:
-        url: SQLAlchemy database URL (SQLite or Postgres).
-
     """
 
-    def __init__(self, url: str) -> None:
-        self._engine: Engine = create_engine(url)
-        Base.metadata.create_all(self._engine)
-        self._sessions = sessionmaker(self._engine, expire_on_commit=False)
+    def __init__(self, database: Database) -> None:
+        self._sessions = database.sessions
 
     def record(self, run_id: str, event: AgentEvent) -> None:
         """Append one event to a run's log, creating or closing the run as needed."""
@@ -67,7 +64,14 @@ class EventStore:
             return
         with self._sessions.begin() as session:
             if isinstance(event, RunStarted):
-                session.add(RunRow(id=run_id, task=event.task, model=event.model))
+                session.add(
+                    RunRow(
+                        id=run_id,
+                        conversation_id=event.conversation_id,
+                        task=event.task,
+                        model=event.model,
+                    )
+                )
             elif isinstance(event, RunFinished):
                 self._close_run(session, event)
             seq = session.scalar(
@@ -83,6 +87,12 @@ class EventStore:
         """Most recent runs first."""
         with self._sessions() as session:
             rows = session.scalars(select(RunRow).order_by(RunRow.started_at.desc()).limit(limit))
+            return [_to_run_record(row) for row in rows]
+
+    def find_runs(self, id_prefix: str) -> Sequence[RunRecord]:
+        """Find runs whose id starts with ``id_prefix`` (at most two, to detect ambiguity)."""
+        with self._sessions() as session:
+            rows = session.scalars(select(RunRow).where(RunRow.id.startswith(id_prefix)).limit(2))
             return [_to_run_record(row) for row in rows]
 
     def get_run(self, run_id: str) -> RunRecord | None:
@@ -102,9 +112,20 @@ class EventStore:
                 for r in rows
             ]
 
-    def close(self) -> None:
-        """Release database connections."""
-        self._engine.dispose()
+    def spent_since(self, since: datetime) -> float:
+        """Total known cost of runs started at or after ``since``, in USD."""
+        with self._sessions() as session:
+            total = session.scalar(
+                select(func.coalesce(func.sum(RunRow.cost_usd), 0.0)).where(
+                    RunRow.started_at >= since
+                )
+            )
+            return float(total or 0.0)
+
+    def spent_today(self) -> float:
+        """Total known cost of runs started today (UTC), in USD."""
+        midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        return self.spent_since(midnight)
 
     @staticmethod
     def _close_run(session: Session, event: RunFinished) -> None:
@@ -115,12 +136,14 @@ class EventStore:
         run.finished_at = datetime.now(UTC)
         run.input_tokens = event.usage.input_tokens
         run.output_tokens = event.usage.output_tokens
+        run.cost_usd = event.cost_usd
         run.steps = event.steps
 
 
 def _to_run_record(row: RunRow) -> RunRecord:
     return RunRecord(
         id=row.id,
+        conversation_id=row.conversation_id,
         task=row.task,
         model=row.model,
         status=row.status,
@@ -128,5 +151,6 @@ def _to_run_record(row: RunRow) -> RunRecord:
         finished_at=row.finished_at,
         input_tokens=row.input_tokens,
         output_tokens=row.output_tokens,
+        cost_usd=row.cost_usd,
         steps=row.steps,
     )

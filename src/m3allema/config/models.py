@@ -99,6 +99,18 @@ class AgentSettings(_Strict):
     tool_timeout_s: float = Field(default=60.0, gt=0)
 
 
+class Price(_Strict):
+    """Token prices in USD per million tokens, for models not priced by default.
+
+    Cache prices default to 10% (read) and 125% (write) of the input price.
+    """
+
+    input: float = Field(ge=0)
+    output: float = Field(ge=0)
+    cache_read: float | None = Field(default=None, ge=0)
+    cache_write: float | None = Field(default=None, ge=0)
+
+
 class StorageSettings(_Strict):
     """Where runs and events are stored.
 
@@ -117,7 +129,8 @@ class AppConfig(_Strict):
     agent: AgentSettings = Field(default_factory=AgentSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     mcp_servers: dict[str, McpServerConfig] = Field(default_factory=dict)
-    builtin_tools: list[str] = Field(default_factory=lambda: ["files", "web"])
+    builtin_tools: list[str] = Field(default_factory=lambda: ["files", "excel", "docs", "web"])
+    pricing: dict[str, Price] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_model_providers(self) -> AppConfig:

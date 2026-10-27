@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from m3allema.domain.events import AgentEvent
+from m3allema.domain.messages import Message
 from m3allema.domain.tools import ToolSpec
 
 
@@ -40,4 +41,12 @@ class EventSink(Protocol):
 
     def record(self, run_id: str, event: AgentEvent) -> None:
         """Store or forward one event."""
+        ...
+
+
+class MessageLog(Protocol):
+    """Persists conversation messages so a conversation can be resumed."""
+
+    def append(self, conversation_id: str, message: Message) -> None:
+        """Save one message at the end of a conversation."""
         ...

@@ -37,7 +37,7 @@ def test_missing_env_var_is_a_clear_error(tmp_path: Path) -> None:
 def test_valid_config_loads(tmp_path: Path) -> None:
     config = load_config(write_config(tmp_path), environ={"TEST_KEY": "k"})
     assert config.providers["claude"].api_key == "k"
-    assert config.builtin_tools == ["files", "web"]
+    assert config.builtin_tools == ["files", "excel", "docs", "web"]
 
 
 @pytest.mark.parametrize(

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -26,6 +26,7 @@ class RunRow(Base):
     __tablename__ = "runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(String(36), index=True, default="")
     task: Mapped[str] = mapped_column(Text)
     model: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(20), default="running")
@@ -33,6 +34,7 @@ class RunRow(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     steps: Mapped[int] = mapped_column(Integer, default=0)
 
 
@@ -46,4 +48,17 @@ class EventRow(Base):
     seq: Mapped[int] = mapped_column(Integer)
     kind: Mapped[str] = mapped_column(String(40))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class MessageRow(Base):
+    """One message of a conversation, in order. Only ever inserted."""
+
+    __tablename__ = "messages"
+    __table_args__ = (UniqueConstraint("conversation_id", "seq"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(String(36), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

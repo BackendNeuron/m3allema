@@ -25,7 +25,12 @@ from pathlib import Path
 CONTEXT_FILES: tuple[str, ...] = ("IDENTITY.md", "BUSINESS.md", "OWNER.md", "RULES.md")
 """Markdown files loaded into the system prompt, in this order."""
 
-_TEMPLATE_FILES: tuple[str, ...] = (*CONTEXT_FILES, "config.yaml", ".env.example")
+_TEMPLATE_FILES: tuple[str, ...] = (
+    *CONTEXT_FILES,
+    "config.yaml",
+    "policy.yaml",
+    ".env.example",
+)
 
 
 class WorkspaceError(Exception):
@@ -45,6 +50,16 @@ class Workspace:
     def config_path(self) -> Path:
         """``config.yaml`` inside the workspace."""
         return self.root / "config.yaml"
+
+    @property
+    def policy_path(self) -> Path:
+        """``policy.yaml``: enforced permissions and budgets."""
+        return self.root / "policy.yaml"
+
+    @property
+    def receipts_dir(self) -> Path:
+        """One markdown receipt per run."""
+        return self.root / "receipts"
 
     @property
     def files_dir(self) -> Path:

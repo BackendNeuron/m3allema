@@ -14,14 +14,13 @@ import os
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
-from mcp.types import ToolAnnotations
+
+from m3allema.tools.servers._annotations import LOCAL_WRITE, READ_ONLY
 
 MAX_READ_BYTES = 1_000_000
+MAX_READ_LINES = 400
 MAX_LIST_ENTRIES = 500
 MAX_SEARCH_HITS = 50
-
-_READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
-_LOCAL_WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 
 
 class PathOutsideRootError(ValueError):
@@ -55,7 +54,7 @@ def create_files_server(root: Path) -> MCPServer:
     def display(path: Path) -> str:
         return path.relative_to(root).as_posix() or "."
 
-    @server.tool(annotations=_READ_ONLY)
+    @server.tool(annotations=READ_ONLY)
     def list_files(path: str = ".") -> str:
         """List files and folders under a folder, recursively. Folders end with '/'."""
         base = resolve_inside(root, path)
@@ -67,20 +66,30 @@ def create_files_server(root: Path) -> MCPServer:
             lines.append(f"... and {len(entries) - MAX_LIST_ENTRIES} more")
         return "\n".join(lines) or "(empty folder)"
 
-    @server.tool(annotations=_READ_ONLY)
-    def read_file(path: str) -> str:
-        """Read a UTF-8 text file (CSV, Markdown, TXT, JSON...)."""
+    @server.tool(annotations=READ_ONLY)
+    def read_file(path: str, start_line: int = 1, max_lines: int = MAX_READ_LINES) -> str:
+        """Read a UTF-8 text file (CSV, Markdown, TXT, JSON...), a page of lines at a time.
+
+        Use start_line to continue reading a long file.
+        """
         target = resolve_inside(root, path)
         if not target.is_file():
             raise ValueError(f"{path!r} does not exist")
         if target.stat().st_size > MAX_READ_BYTES:
             raise ValueError(f"{path!r} is larger than {MAX_READ_BYTES // 1000} KB")
         try:
-            return target.read_text(encoding="utf-8")
+            lines = target.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError as exc:
             raise ValueError(f"{path!r} is not a text file") from exc
+        start = max(start_line, 1)
+        page = lines[start - 1 : start - 1 + max(1, min(max_lines, MAX_READ_LINES))]
+        end = start + len(page) - 1
+        text = "\n".join(page)
+        if end < len(lines):
+            text += f"\n\n[lines {start}-{end} of {len(lines)}; continue with start_line={end + 1}]"
+        return text
 
-    @server.tool(annotations=_LOCAL_WRITE)
+    @server.tool(annotations=LOCAL_WRITE)
     def write_file(path: str, content: str, overwrite: bool = False) -> str:
         """Create a text file. Set overwrite=true to replace an existing file."""
         target = resolve_inside(root, path)
@@ -90,7 +99,7 @@ def create_files_server(root: Path) -> MCPServer:
         target.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} characters to {display(target)}"
 
-    @server.tool(annotations=_READ_ONLY)
+    @server.tool(annotations=READ_ONLY)
     def search_files(query: str, path: str = ".") -> str:
         """Find lines containing a phrase (case-insensitive) in text files under a folder."""
         base = resolve_inside(root, path)

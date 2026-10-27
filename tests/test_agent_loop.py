@@ -1,10 +1,10 @@
 from fakes import READ_TOOL, SEND_TOOL, FakeTools, ScriptedProvider, turn
 from m3allema.agent.loop import Agent
-from m3allema.agent.permissions import RiskPolicyGate
+from m3allema.agent.permissions import PolicyGate
 from m3allema.config.models import AgentSettings
 from m3allema.domain.events import AgentEvent, RunFinished, ToolCallFinished
 from m3allema.domain.messages import StopReason, ToolCall, ToolResultMessage
-from m3allema.domain.tools import Risk, ToolSpec
+from m3allema.domain.tools import ToolSpec
 from m3allema.providers.base import INVALID_ARGUMENTS_KEY, ProviderError
 from m3allema.providers.factory import ResolvedModel
 
@@ -21,7 +21,7 @@ def make_agent(
     provider: ScriptedProvider,
     tools: FakeTools,
     *,
-    gate: RiskPolicyGate | None = None,
+    gate: PolicyGate | None = None,
     fallback: ScriptedProvider | None = None,
     max_steps: int = 10,
     sink: RecordingSink | None = None,
@@ -30,7 +30,7 @@ def make_agent(
         model=ResolvedModel("fake/main", provider, "main"),
         fallback=ResolvedModel("fake/backup", fallback, "backup") if fallback else None,
         tools=tools,
-        gate=gate or RiskPolicyGate(auto_up_to=Risk.READ),
+        gate=gate or PolicyGate(),
         system_prompt="system",
         settings=AgentSettings(max_steps=max_steps),
         sink=sink,
@@ -77,7 +77,7 @@ async def test_risky_call_is_declined_without_approver_and_model_is_told() -> No
     assert tools.calls == []
     result = next(e for e in events if isinstance(e, ToolCallFinished)).result
     assert result.is_error
-    assert "declined" in result.content
+    assert result.content.startswith("Not run: needs approval")
 
 
 async def test_approver_can_allow_a_risky_call() -> None:
@@ -87,7 +87,7 @@ async def test_approver_can_allow_a_risky_call() -> None:
     call = ToolCall("c1", "gmail__send", {})
     provider = ScriptedProvider(turn("", call), turn("Sent."))
     tools = FakeTools([SEND_TOOL])
-    gate = RiskPolicyGate(auto_up_to=Risk.READ, approver=approve)
+    gate = PolicyGate(approver=approve)
     await collect(make_agent(provider, tools, gate=gate), "send")
     assert tools.calls == [("gmail__send", {})]
 

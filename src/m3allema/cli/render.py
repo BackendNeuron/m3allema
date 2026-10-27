@@ -56,9 +56,10 @@ class EventRenderer:
                 if status != "completed":
                     self._console.print(escape(answer))
                 style = _STATUS_STYLE.get(status, "red")
+                cost = "cost unknown" if event.cost_usd is None else f"${event.cost_usd:.4f}"
                 self._console.print(
                     f"[{style}]{status}[/{style}] [dim]{steps} steps, "
-                    f"{usage.input_tokens:,} in / {usage.output_tokens:,} out tokens[/dim]"
+                    f"{usage.input_tokens:,} in / {usage.output_tokens:,} out tokens, {cost}[/dim]"
                 )
 
     def _end_line(self) -> None:

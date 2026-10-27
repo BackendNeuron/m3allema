@@ -46,6 +46,25 @@ def resolve_env_refs(value: Any, environ: Mapping[str, str]) -> Any:
     return value
 
 
+def read_storage_url(path: Path) -> str | None:
+    """Return ``storage.url`` without resolving secrets or validating the rest.
+
+    Lets read-only commands (like ``m3allema runs list``) open the database
+    even when provider keys are not set.
+    """
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return None
+    storage = raw.get("storage") if isinstance(raw, dict) else None
+    url = storage.get("url") if isinstance(storage, dict) else None
+    if isinstance(url, str) and not url.startswith(ENV_PREFIX):
+        return url
+    if isinstance(url, str):
+        return os.environ.get(url[len(ENV_PREFIX) :])
+    return None
+
+
 def load_config(path: Path, *, environ: Mapping[str, str] | None = None) -> AppConfig:
     """Read, resolve and validate a configuration file.
 

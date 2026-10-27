@@ -10,8 +10,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from m3allema.config.policy import Mode, Policy
 from m3allema.domain.messages import ToolCall
-from m3allema.domain.tools import Risk, ToolSpec
+from m3allema.domain.tools import ToolSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,31 +35,29 @@ Approver = Callable[[ToolCall, ToolSpec], Awaitable[bool]]
 """Asks the owner about one call (CLI prompt, web button, Telegram message)."""
 
 
-async def _deny_all(call: ToolCall, spec: ToolSpec) -> bool:
-    return False
-
-
-class RiskPolicyGate:
-    """Runs calls up to a risk level on their own and asks about the rest.
+class PolicyGate:
+    """Applies ``policy.yaml``: run, ask the owner, or refuse.
 
     Args:
-        auto_up_to: Highest risk that runs without asking. ``Risk.READ`` is the
-            safe default; ``None`` asks about every call.
-        approver: How to ask the owner. Without one, risky calls are declined,
+        policy: The workspace policy. Defaults to the safe policy (only reads run alone).
+        approver: How to ask the owner. Without one, ``ask`` calls are declined,
             which keeps unattended runs safe.
 
     """
 
-    def __init__(
-        self, auto_up_to: Risk | None = Risk.READ, approver: Approver | None = None
-    ) -> None:
-        self._auto_up_to = auto_up_to
-        self._approver = approver or _deny_all
+    def __init__(self, policy: Policy | None = None, approver: Approver | None = None) -> None:
+        self._policy = policy or Policy()
+        self._approver = approver
 
     async def check(self, call: ToolCall, spec: ToolSpec) -> Decision:
-        """Allow automatically, or ask the approver."""
-        if self._auto_up_to is not None and spec.risk.rank <= self._auto_up_to.rank:
-            return Decision(True, f"{spec.risk.value} tools run automatically")
+        """Decide according to the policy, asking the approver for ``ask`` tools."""
+        mode = self._policy.mode_for(spec)
+        if mode is Mode.AUTO:
+            return Decision(True, "allowed by policy")
+        if mode is Mode.DENY:
+            return Decision(False, "blocked by the workspace policy")
+        if self._approver is None:
+            return Decision(False, "needs approval and nobody is available to approve")
         if await self._approver(call, spec):
             return Decision(True, "approved by the owner")
         return Decision(False, "declined by the owner")

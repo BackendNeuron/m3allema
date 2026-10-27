@@ -1,0 +1,16 @@
+# What M3allema may do. Unlike the .md files, this is enforced in code.
+# Modes: auto (runs on its own), ask (waits for your approval), deny (never runs).
+
+defaults:
+  read: auto        # looking at files, sheets, web pages
+  write: ask        # creating or changing files in files/
+  external: ask     # sending, paying, deleting, anything outside your control
+
+# Per-tool overrides. Shell-style patterns; the first match wins.
+tools: {}
+#  "files__write_file": auto
+#  "shell__*": deny
+
+budget:
+  per_run_usd: 1.00
+  per_day_usd: 10.00

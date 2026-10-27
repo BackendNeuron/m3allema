@@ -25,11 +25,20 @@ class TextDelta:
 
 @dataclass(frozen=True, slots=True)
 class TurnCompleted:
-    """A model turn finished; carries the whole assistant message."""
+    """A model turn finished; carries the whole assistant message.
+
+    Attributes:
+        model: ``provider/model`` that produced the turn (set by the agent, since a
+            fallback model may have answered).
+        cost_usd: Price of the turn, or ``None`` when the model's price is unknown.
+
+    """
 
     message: AssistantMessage
     stop_reason: StopReason
     usage: Usage
+    model: str = ""
+    cost_usd: float | None = None
 
 
 StreamEvent = TextDelta | TurnCompleted
@@ -42,6 +51,7 @@ class RunStarted:
     run_id: str
     task: str
     model: str
+    conversation_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +68,7 @@ class ToolCallFinished:
     call: ToolCall
     result: ToolResult
     duration_ms: int
+    risk: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,10 +76,12 @@ class RunFinished:
     """The run ended.
 
     Attributes:
-        status: ``completed``, ``refused``, ``max_steps``, ``truncated`` or ``failed``.
+        status: ``completed``, ``refused``, ``max_steps``, ``truncated``, ``budget``
+            or ``failed``.
         answer: The final text shown to the owner.
         usage: Total tokens across every turn of the run.
         steps: Number of model turns taken.
+        cost_usd: Total price, or ``None`` if any turn's price was unknown.
 
     """
 
@@ -77,6 +90,7 @@ class RunFinished:
     answer: str
     usage: Usage
     steps: int
+    cost_usd: float | None = None
 
 
 AgentEvent = (
