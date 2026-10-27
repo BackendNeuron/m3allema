@@ -5,11 +5,12 @@ from pypdf import PdfWriter
 
 from m3allema.domain.tools import Risk
 from m3allema.tools.hub import ToolHub
+from m3allema.tools.servers import ToolContext
 from m3allema.tools.servers.shell import SandboxSettings, docker_command, run_sandboxed
 
 
 async def test_excel_write_append_and_read(tmp_path: Path) -> None:
-    async with ToolHub.from_config(["excel"], {}, tmp_path) as hub:
+    async with ToolHub.from_config(["excel"], {}, ToolContext(tmp_path)) as hub:
         risks = {s.name: s.risk for s in hub.specs()}
         assert risks["excel__read_sheet"] is Risk.READ
         assert risks["excel__write_sheet"] is Risk.WRITE
@@ -31,14 +32,14 @@ async def test_excel_write_append_and_read(tmp_path: Path) -> None:
 
 
 async def test_excel_rejects_other_formats(tmp_path: Path) -> None:
-    async with ToolHub.from_config(["excel"], {}, tmp_path) as hub:
+    async with ToolHub.from_config(["excel"], {}, ToolContext(tmp_path)) as hub:
         result = await hub.call("excel__read_sheet", {"path": "data.csv"})
     assert result.is_error
 
 
 async def test_docx_write_then_read(tmp_path: Path) -> None:
     body = "# Overview\nSales grew.\n- Delta paid\n- Nile pending"
-    async with ToolHub.from_config(["docs"], {}, tmp_path) as hub:
+    async with ToolHub.from_config(["docs"], {}, ToolContext(tmp_path)) as hub:
         written = await hub.call(
             "docs__write_docx", {"path": "report.docx", "title": "Weekly report", "body": body}
         )
@@ -58,14 +59,14 @@ async def test_pdf_without_text_is_reported(tmp_path: Path) -> None:
     writer.add_blank_page(width=200, height=200)
     with (tmp_path / "scan.pdf").open("wb") as handle:
         writer.write(handle)
-    async with ToolHub.from_config(["docs"], {}, tmp_path) as hub:
+    async with ToolHub.from_config(["docs"], {}, ToolContext(tmp_path)) as hub:
         result = await hub.call("docs__read_document", {"path": "scan.pdf"})
     assert "page 1" in result.content
 
 
 async def test_read_file_pages_long_files(tmp_path: Path) -> None:
     (tmp_path / "long.txt").write_text("\n".join(f"line {n}" for n in range(1, 1001)), "utf-8")
-    async with ToolHub.from_config(["files"], {}, tmp_path) as hub:
+    async with ToolHub.from_config(["files"], {}, ToolContext(tmp_path)) as hub:
         first = await hub.call("files__read_file", {"path": "long.txt"})
         later = await hub.call("files__read_file", {"path": "long.txt", "start_line": 401})
     assert "continue with start_line=401" in first.content

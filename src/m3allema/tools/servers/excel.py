@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,8 @@ def _require_xlsx(path: Path) -> None:
         raise ValueError("only .xlsx workbooks are supported")
 
 
-def _to_csv(rows: list[tuple[Any, ...]]) -> str:
+def rows_to_csv(rows: Sequence[Sequence[Any]]) -> str:
+    """Render rows as CSV text; ``None`` cells become empty."""
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     for row in rows:
@@ -68,7 +70,7 @@ def create_excel_server(root: Path) -> MCPServer:
             ws = workbook[sheet] if sheet else workbook.worksheets[0]
             first = max(start_row, 1)
             rows = list(ws.iter_rows(min_row=first, max_row=first + MAX_ROWS - 1, values_only=True))
-            text = _to_csv(rows) or "(empty sheet)"
+            text = rows_to_csv(rows) or "(empty sheet)"
             last = first + len(rows) - 1
             if ws.max_row and last < ws.max_row:
                 text += (

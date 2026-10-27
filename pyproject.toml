@@ -22,6 +22,10 @@ requires-python = ">=3.11"
 dependencies = [
     "anthropic>=2.3.0",
     "beautifulsoup4>=4.15.0",
+    "cryptography>=50.0.2",
+    "google-api-python-client>=2.201.0",
+    "google-auth>=2.62.0",
+    "google-auth-oauthlib>=1.5.0",
     "httpx>=0.28.1",
     "mcp>=2.3.0",
     "openai>=3.39.0",
@@ -95,8 +99,13 @@ packages = ["m3allema"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["bs4.*"]
+module = ["bs4.*", "googleapiclient.*", "google_auth_oauthlib.*"]
 ignore_missing_imports = true
+
+# google-auth is only partly annotated; keep strictness everywhere else.
+[[tool.mypy.overrides]]
+module = ["m3allema.integrations.google.*"]
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

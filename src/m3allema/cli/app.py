@@ -16,8 +16,16 @@ from rich.table import Table
 from m3allema import __version__
 from m3allema.cli.render import EventRenderer, terminal_approver
 from m3allema.config.loader import ConfigError
+from m3allema.integrations.google.auth import SCOPES, GoogleAuthError
 from m3allema.providers.base import ProviderError
-from m3allema.runtime import ResumeError, Session, Stores, open_session, open_stores
+from m3allema.runtime import (
+    ResumeError,
+    Session,
+    Stores,
+    google_auth,
+    open_session,
+    open_stores,
+)
 from m3allema.workspace.workspace import Workspace, WorkspaceError
 
 app = typer.Typer(
@@ -28,6 +36,8 @@ app = typer.Typer(
 )
 runs_app = typer.Typer(help="Inspect past runs from the event log.", no_args_is_help=True)
 app.add_typer(runs_app, name="runs")
+google_app = typer.Typer(help="Connect Gmail, Calendar and Sheets.", no_args_is_help=True)
+app.add_typer(google_app, name="google")
 
 console = Console()
 
@@ -157,6 +167,58 @@ def runs_show(
         stores.close()
 
 
+@google_app.command("connect")
+def google_connect(
+    client_secret: Annotated[
+        Path,
+        typer.Option(
+            "--client-secret", help="OAuth client JSON downloaded from Google Cloud (Desktop app)."
+        ),
+    ],
+    workspace: WorkspaceOption = Path(),
+) -> None:
+    """Sign in to Google once; the token is stored encrypted in the workspace."""
+    auth = google_auth(_workspace(workspace))
+    console.print("Opening Google's sign-in page in your browser...")
+    try:
+        message = auth.connect(client_secret)
+    except GoogleAuthError as exc:
+        _fail(str(exc))
+    console.print(f"[green]{escape(message)}[/green]")
+    console.print(
+        "Enable the tools in config.yaml: builtin_tools: [files, excel, docs, web, "
+        "gmail, calendar, sheets]"
+    )
+
+
+@google_app.command("status")
+def google_status(workspace: WorkspaceOption = Path()) -> None:
+    """Show whether Google is connected and still valid."""
+    auth = google_auth(_workspace(workspace))
+    if not auth.is_connected:
+        console.print(
+            "[yellow]Not connected.[/yellow] Run: m3allema google connect --client-secret FILE"
+        )
+        return
+    try:
+        auth.credentials()
+    except GoogleAuthError as exc:
+        _fail(str(exc))
+    scopes = ", ".join(s.rsplit("/", 1)[-1] for s in SCOPES)
+    console.print(f"[green]Connected[/green] [dim]({scopes})[/dim]")
+
+
+@google_app.command("disconnect")
+def google_disconnect(workspace: WorkspaceOption = Path()) -> None:
+    """Delete the stored Google sign-in from this workspace."""
+    removed = google_auth(_workspace(workspace)).disconnect()
+    console.print("Disconnected." if removed else "Google was not connected.")
+    console.print(
+        "[dim]To revoke access completely, also remove the app at "
+        "https://myaccount.google.com/permissions[/dim]"
+    )
+
+
 async def _run_task(root: Path, task: str) -> None:
     async with _open(root) as session:
         await _stream(session, task)
@@ -224,6 +286,13 @@ def _open(root: Path, resume: str | None = None) -> AbstractAsyncContextManager[
     )
 
 
+def _workspace(root: Path) -> Workspace:
+    try:
+        return Workspace.open(root)
+    except WorkspaceError as exc:
+        _fail(str(exc))
+
+
 def _stores(root: Path) -> Stores:
     try:
         return open_stores(Workspace.open(root))
@@ -234,7 +303,7 @@ def _stores(root: Path) -> Stores:
 def _run_async(coro: Coroutine[Any, Any, None]) -> None:
     try:
         asyncio.run(coro)
-    except (WorkspaceError, ConfigError, ResumeError) as exc:
+    except (WorkspaceError, ConfigError, ResumeError, GoogleAuthError) as exc:
         _fail(str(exc))
     except KeyboardInterrupt:
         console.print("\n[dim]Stopped. Resume with: m3allema chat --resume[/dim]")

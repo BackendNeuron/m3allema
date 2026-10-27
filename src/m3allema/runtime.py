@@ -19,12 +19,14 @@ from m3allema.agent.sinks import FanOutSink, ReceiptWriter
 from m3allema.config.loader import load_config, read_storage_url
 from m3allema.config.models import AppConfig
 from m3allema.config.policy import Policy, load_policy
+from m3allema.integrations.google.auth import GoogleAuth
 from m3allema.providers.factory import ModelRouter
 from m3allema.providers.pricing import PriceBook
 from m3allema.storage.conversation_store import ConversationStore
 from m3allema.storage.database import Database
 from m3allema.storage.event_store import EventStore
 from m3allema.tools.hub import ToolHub
+from m3allema.tools.servers import ToolContext
 from m3allema.workspace.prompt import PromptBuilder
 from m3allema.workspace.workspace import Workspace
 
@@ -64,6 +66,11 @@ def open_stores(workspace: Workspace) -> Stores:
     url = read_storage_url(workspace.config_path) or workspace.default_database_url
     database = Database(url)
     return Stores(database, EventStore(database), ConversationStore(database))
+
+
+def google_auth(workspace: Workspace) -> GoogleAuth:
+    """Google sign-in for ``workspace``."""
+    return GoogleAuth(workspace.state_dir, workspace.env_path)
 
 
 def _resolve_resume(conversations: ConversationStore, resume: str) -> str:
@@ -111,8 +118,9 @@ async def open_session(
         conversation_id = _resolve_resume(stores.conversations, resume) if resume else None
         history = stores.conversations.load(conversation_id) if conversation_id else ()
         sink = FanOutSink([stores.events, ReceiptWriter(workspace.receipts_dir, on_receipt)])
+        tool_context = ToolContext(workspace.files_dir, google_auth(workspace))
         async with ToolHub.from_config(
-            config.builtin_tools, config.mcp_servers, workspace.files_dir
+            config.builtin_tools, config.mcp_servers, tool_context
         ) as hub:
             agent = Agent(
                 model=main,

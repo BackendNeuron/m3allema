@@ -52,6 +52,11 @@ class Workspace:
         return self.root / "config.yaml"
 
     @property
+    def env_path(self) -> Path:
+        """``.env``: secrets for this workspace, never committed."""
+        return self.root / ".env"
+
+    @property
     def policy_path(self) -> Path:
         """``policy.yaml``: enforced permissions and budgets."""
         return self.root / "policy.yaml"

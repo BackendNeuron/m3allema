@@ -18,7 +18,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
@@ -29,7 +28,7 @@ from mcp.types import CallToolResult, ToolAnnotations
 from m3allema.agent.interfaces import ToolOutput
 from m3allema.config.models import McpServerConfig
 from m3allema.domain.tools import Risk, ToolSpec
-from m3allema.tools.servers import BUILTIN_SERVERS
+from m3allema.tools.servers import BUILTIN_SERVERS, ToolContext
 
 SEPARATOR = "__"
 
@@ -86,18 +85,19 @@ class ToolHub:
         cls,
         builtin_names: Sequence[str],
         external: Mapping[str, McpServerConfig],
-        files_root: Path,
+        context: ToolContext,
     ) -> ToolHub:
         """Create a hub with the named built-in servers and the external ones.
 
         Raises:
             ValueError: A built-in name is unknown.
+            GoogleAuthError: A Google tool is enabled but Google is not connected.
 
         """
         unknown = sorted(set(builtin_names) - BUILTIN_SERVERS.keys())
         if unknown:
             raise ValueError(f"unknown built-in tools: {', '.join(unknown)}")
-        servers = {name: BUILTIN_SERVERS[name](files_root) for name in builtin_names}
+        servers = {name: BUILTIN_SERVERS[name](context) for name in builtin_names}
         return cls(servers, external)
 
     async def __aenter__(self) -> Self:

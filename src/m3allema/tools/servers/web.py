@@ -13,9 +13,10 @@ import socket
 from urllib.parse import urlparse
 
 import httpx
-from bs4 import BeautifulSoup
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
+
+from m3allema.text import html_to_text
 
 MAX_PAGE_CHARS = 30_000
 TIMEOUT_S = 20.0
@@ -43,15 +44,6 @@ def ensure_public_url(url: str) -> None:
         address = ipaddress.ip_address(info[4][0])
         if not address.is_global:
             raise ValueError(f"{parsed.hostname} points to a private or local address")
-
-
-def html_to_text(html: str) -> str:
-    """Strip scripts, styles and markup, keeping readable text."""
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "noscript", "svg", "nav", "footer"]):
-        tag.decompose()
-    lines = (line.strip() for line in soup.get_text("\n").splitlines())
-    return "\n".join(line for line in lines if line)
 
 
 def create_web_server() -> MCPServer:
