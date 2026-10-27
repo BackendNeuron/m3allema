@@ -1,0 +1,40 @@
+# M3allema configuration. Secrets are never written here: use env:NAME and put
+# the value in .env (copy .env.example to .env).
+
+providers:
+  claude:
+    type: anthropic
+    api_key: env:ANTHROPIC_API_KEY
+    options:
+      effort: medium            # low | medium | high | xhigh | max
+
+  # Any OpenAI-compatible server works with type: openai_compat.
+  # groq:
+  #   type: openai_compat
+  #   base_url: https://api.groq.com/openai/v1
+  #   api_key: env:GROQ_API_KEY
+  # local:
+  #   type: openai_compat
+  #   base_url: http://localhost:11434/v1   # Ollama, no key needed
+
+models:
+  main: claude/claude-opus-5-5
+  # fast: groq/llama-3.3-70b-versatile
+  # fallback: local/qwen3:8b
+
+agent:
+  max_steps: 25
+  max_tokens: 16000
+
+# Built-in MCP tool servers to enable.
+builtin_tools: [files, web]
+
+# Any external MCP server can be added here.
+mcp_servers: {}
+#  postgres:
+#    transport: stdio
+#    command: npx
+#    args: ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/shop"]
+#  notion:
+#    transport: http
+#    url: https://mcp.notion.com/mcp

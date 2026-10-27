@@ -1,0 +1,80 @@
+# Architecture
+
+M3allema is a small set of layers with one rule: **dependencies point inward**. The domain
+knows nothing about SDKs, MCP or databases; the agent loop knows only interfaces; concrete
+adapters live at the edges and are wired together in one place.
+
+```
+src/m3allema/
+  domain/        plain data: messages, events, tool specs        (no dependencies)
+  config/        typed config.yaml schema + loader                (pydantic)
+  workspace/     workspace folder, templates, system prompt
+  providers/     LLMProvider interface + Anthropic / OpenAI-compatible adapters
+  agent/         the loop, the permission gate, the interfaces it needs
+  tools/         ToolHub (MCP client) + built-in MCP servers
+  storage/       EventStore: runs and the append-only event log   (SQLAlchemy)
+  runtime.py     composition root: builds a ready Session
+  cli/           Typer commands + Rich rendering
+```
+
+## Request flow
+
+1. The CLI calls `runtime.open_session()`, which loads the workspace and config, builds the
+   providers, connects the MCP servers and returns a `Session` with an `Agent`.
+2. `Agent.run(task)` appends the task to the conversation and asks the main model for a turn.
+3. The provider streams `TextDelta` events, then one `TurnCompleted` with the neutral
+   `AssistantMessage`.
+4. For each tool call, the agent validates it, asks the `PermissionGate`, runs it through the
+   `ToolExecutor` with a timeout, and sends every result back in one `ToolResultMessage`.
+5. Steps 2–4 repeat until the model answers without tools, refuses, runs out of tokens, or hits
+   `max_steps`. The run always ends with exactly one `RunFinished` event.
+6. Every event goes to the `EventSink` (the `EventStore`) as it happens.
+
+## Design decisions
+
+### A neutral message format
+Providers disagree on message shapes (Claude puts tool results in user turns, OpenAI uses
+`tool` messages). The domain defines its own `UserMessage`, `AssistantMessage` and
+`ToolResultMessage`; each adapter translates both ways. Switching or mixing providers never
+touches the loop.
+
+### Exact replay for Claude
+`AssistantMessage.raw` keeps the SDK's own content blocks, thinking blocks included. The
+Anthropic adapter sends them back unchanged on the next turn. Rebuilding them would break
+Claude's thinking signatures. Turns from other providers are rebuilt from neutral blocks.
+
+### Native adapters instead of one OpenAI-compatible shim
+Claude's native API keeps prompt caching, effort control and server-side refusal fallbacks.
+Everything else speaks the OpenAI Chat Completions dialect, so one second adapter covers it.
+
+### The permission gate lives in code
+Risk comes from the tool (`ToolSpec.risk`), never from the model. Built-in MCP servers declare
+risk through MCP annotations; external servers are untrusted and always `external` (ask).
+Declined calls return an error result telling the model not to retry. Without an approver,
+risky calls are declined, so unattended runs fail safe.
+
+### Failure is data
+Unknown tools, invalid JSON arguments, timeouts and tool exceptions become `is_error` tool
+results, so the model can recover. Provider failures end the run with `status="failed"`.
+Transient provider errors switch to the fallback model, but only before any text was shown.
+
+### History stays valid
+If a turn is cut off (`max_tokens`) or refused while it contains tool calls, the calls are
+never run (their arguments may be partial), and the loop closes them with "not run" results.
+That way the next request in the conversation is still valid for every provider.
+
+### Append-only event log
+`EventStore` only inserts. `runs show` replays a run from it. Streaming text fragments are not
+stored, because the completed turn holds the same text.
+
+## Patterns used
+
+| Pattern | Where |
+|---|---|
+| Adapter | `AnthropicProvider`, `OpenAICompatProvider` translate the neutral model |
+| Strategy | `PermissionGate`, `Approver` (terminal now; web and Telegram later) |
+| Factory / registry | `providers.factory.build_provider`, `tools.servers.BUILTIN_SERVERS` |
+| Repository | `EventStore` hides SQLAlchemy from callers |
+| Observer | `EventSink` receives every agent event |
+| Composition root | `runtime.open_session` is the only place objects are wired |
+| Dependency inversion | `Agent` depends on protocols in `agent/interfaces.py` |

@@ -1,0 +1,29 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Tool caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets and local state: never commit these
+.env
+.m3allema/
+*.db
+*.sqlite
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

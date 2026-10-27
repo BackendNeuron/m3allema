@@ -1,0 +1,153 @@
+from fakes import READ_TOOL, SEND_TOOL, FakeTools, ScriptedProvider, turn
+from m3allema.agent.loop import Agent
+from m3allema.agent.permissions import RiskPolicyGate
+from m3allema.config.models import AgentSettings
+from m3allema.domain.events import AgentEvent, RunFinished, ToolCallFinished
+from m3allema.domain.messages import StopReason, ToolCall, ToolResultMessage
+from m3allema.domain.tools import Risk, ToolSpec
+from m3allema.providers.base import INVALID_ARGUMENTS_KEY, ProviderError
+from m3allema.providers.factory import ResolvedModel
+
+
+class RecordingSink:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, AgentEvent]] = []
+
+    def record(self, run_id: str, event: AgentEvent) -> None:
+        self.events.append((run_id, event))
+
+
+def make_agent(
+    provider: ScriptedProvider,
+    tools: FakeTools,
+    *,
+    gate: RiskPolicyGate | None = None,
+    fallback: ScriptedProvider | None = None,
+    max_steps: int = 10,
+    sink: RecordingSink | None = None,
+) -> Agent:
+    return Agent(
+        model=ResolvedModel("fake/main", provider, "main"),
+        fallback=ResolvedModel("fake/backup", fallback, "backup") if fallback else None,
+        tools=tools,
+        gate=gate or RiskPolicyGate(auto_up_to=Risk.READ),
+        system_prompt="system",
+        settings=AgentSettings(max_steps=max_steps),
+        sink=sink,
+        new_id=lambda: "run-1",
+    )
+
+
+async def collect(agent: Agent, task: str) -> list[AgentEvent]:
+    return [event async for event in agent.run(task)]
+
+
+def finished(events: list[AgentEvent]) -> RunFinished:
+    last = events[-1]
+    assert isinstance(last, RunFinished)
+    return last
+
+
+async def test_plain_answer_completes_in_one_step() -> None:
+    agent = make_agent(ScriptedProvider(turn("Hello!")), FakeTools([]))
+    result = finished(await collect(agent, "hi"))
+    assert (result.status, result.answer, result.steps) == ("completed", "Hello!", 1)
+
+
+async def test_tool_call_runs_and_result_goes_back_to_model() -> None:
+    call = ToolCall("c1", "files__read_file", {"path": "a.txt"})
+    provider = ScriptedProvider(turn("", call), turn("The file says ok."))
+    tools = FakeTools([READ_TOOL], {"files__read_file": "contents"})
+    events = await collect(make_agent(provider, tools), "read a.txt")
+
+    assert tools.calls == [("files__read_file", {"path": "a.txt"})]
+    second_request = provider.requests[1]
+    results = second_request.messages[-1]
+    assert isinstance(results, ToolResultMessage)
+    assert results.results[0].content == "contents"
+    assert finished(events).usage.input_tokens == 20
+
+
+async def test_risky_call_is_declined_without_approver_and_model_is_told() -> None:
+    call = ToolCall("c1", "gmail__send", {"to": "x@example.com"})
+    provider = ScriptedProvider(turn("", call), turn("I did not send it."))
+    tools = FakeTools([SEND_TOOL])
+    events = await collect(make_agent(provider, tools), "email them")
+
+    assert tools.calls == []
+    result = next(e for e in events if isinstance(e, ToolCallFinished)).result
+    assert result.is_error
+    assert "declined" in result.content
+
+
+async def test_approver_can_allow_a_risky_call() -> None:
+    async def approve(call: ToolCall, spec: ToolSpec) -> bool:
+        return True
+
+    call = ToolCall("c1", "gmail__send", {})
+    provider = ScriptedProvider(turn("", call), turn("Sent."))
+    tools = FakeTools([SEND_TOOL])
+    gate = RiskPolicyGate(auto_up_to=Risk.READ, approver=approve)
+    await collect(make_agent(provider, tools, gate=gate), "send")
+    assert tools.calls == [("gmail__send", {})]
+
+
+async def test_unknown_tool_and_invalid_arguments_become_errors() -> None:
+    calls = (
+        ToolCall("c1", "nope__tool", {}),
+        ToolCall("c2", "files__read_file", {INVALID_ARGUMENTS_KEY: "{bad"}),
+    )
+    provider = ScriptedProvider(turn("", *calls), turn("Sorry."))
+    tools = FakeTools([READ_TOOL])
+    events = await collect(make_agent(provider, tools), "go")
+
+    errors = [e.result for e in events if isinstance(e, ToolCallFinished)]
+    assert all(r.is_error for r in errors)
+    assert tools.calls == []
+
+
+async def test_stops_at_max_steps() -> None:
+    call = ToolCall("c", "files__read_file", {})
+    provider = ScriptedProvider(*(turn("", call) for _ in range(3)))
+    result = finished(
+        await collect(make_agent(provider, FakeTools([READ_TOOL]), max_steps=3), "loop")
+    )
+    assert (result.status, result.steps) == ("max_steps", 3)
+
+
+async def test_truncated_tool_call_is_not_run_and_history_stays_valid() -> None:
+    call = ToolCall("c1", "files__read_file", {"path": "a"})
+    provider = ScriptedProvider(turn("", call, stop=StopReason.MAX_TOKENS))
+    tools = FakeTools([READ_TOOL])
+    agent = make_agent(provider, tools)
+    result = finished(await collect(agent, "go"))
+
+    assert result.status == "truncated"
+    assert tools.calls == []
+    assert isinstance(agent.history[-1], ToolResultMessage)
+
+
+async def test_falls_back_on_retryable_error() -> None:
+    main = ScriptedProvider(ProviderError("overloaded", retryable=True))
+    backup = ScriptedProvider(turn("From backup."))
+    result = finished(await collect(make_agent(main, FakeTools([]), fallback=backup), "hi"))
+    assert result.answer == "From backup."
+
+
+async def test_non_retryable_error_fails_the_run_cleanly() -> None:
+    main = ScriptedProvider(ProviderError("bad request", retryable=False))
+    backup = ScriptedProvider(turn("unused"))
+    result = finished(await collect(make_agent(main, FakeTools([]), fallback=backup), "hi"))
+    assert result.status == "failed"
+    assert backup.requests == []
+
+
+async def test_every_event_reaches_the_sink_and_history_persists() -> None:
+    sink = RecordingSink()
+    provider = ScriptedProvider(turn("One."), turn("Two."))
+    agent = make_agent(provider, FakeTools([]), sink=sink)
+    await collect(agent, "first")
+    await collect(agent, "second")
+
+    assert {run_id for run_id, _ in sink.events} == {"run-1"}
+    assert len(provider.requests[1].messages) == 3  # user, assistant, user

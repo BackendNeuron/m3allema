@@ -1,0 +1,100 @@
+[project]
+name = "m3allema"
+version = "0.1.0"
+description = "M3allema: the open-source AI back office for small businesses. She drafts, asks, then acts, with a receipt for everything."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Mohamed Hossam Hassan", email = "mohamed.hhossam@alum.bue.edu.eg" }
+]
+keywords = ["ai-agent", "mcp", "llm", "automation", "small-business", "arabic"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=2.3.0",
+    "beautifulsoup4>=4.15.0",
+    "httpx>=0.28.1",
+    "mcp>=2.3.0",
+    "openai>=3.39.0",
+    "pydantic>=2",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "sqlalchemy>=2",
+    "typer>=0.27.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/BackendNeuron/m3allema"
+Repository = "https://github.com/BackendNeuron/m3allema"
+Issues = "https://github.com/BackendNeuron/m3allema/issues"
+
+[project.scripts]
+m3allema = "m3allema.cli.app:main"
+mek = "m3allema.cli.app:main"
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.1",
+    "ruff>=0.17.3",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "SIM",      # simplify
+    "RUF",      # ruff-specific
+    "N",        # naming
+    "D",        # docstrings
+    "ASYNC",    # async pitfalls
+    "S",        # bandit security checks
+]
+ignore = [
+    "D105",  # magic methods
+    "D107",  # __init__ (documented on the class)
+    "D203",  # conflicts with D211
+    "D213",  # conflicts with D212
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "S108"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["m3allema"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["bs4.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"
