@@ -63,6 +63,19 @@ If a turn is cut off (`max_tokens`) or refused while it contains tool calls, the
 never run (their arguments may be partial), and the loop closes them with "not run" results.
 That way the next request in the conversation is still valid for every provider.
 
+### Conversations are saved message by message
+`ConversationStore` writes each message as it is added, so `chat --resume` rebuilds the exact
+history. Claude turns keep their raw blocks, which round-trip unchanged through JSON.
+`/compact` never edits a conversation: it asks the model for a summary, then continues in a
+new conversation that starts from it. Large tool output is cut *before* it enters the
+history (`OutputArchive`), for the same reason.
+
+### Policy, budgets and receipts
+`PolicyGate` applies `policy.yaml` (auto / ask / deny per risk level or tool pattern). The
+agent prices every turn with `PriceBook` and stops when a per-run or per-day budget is
+reached. `ReceiptWriter`, another event sink, turns each finished run into a markdown
+receipt. `FanOutSink` sends events to both the database and the receipt writer.
+
 ### Append-only event log
 `EventStore` only inserts. `runs show` replays a run from it. Streaming text fragments are not
 stored, because the completed turn holds the same text.
@@ -74,7 +87,6 @@ stored, because the completed turn holds the same text.
 | Adapter | `AnthropicProvider`, `OpenAICompatProvider` translate the neutral model |
 | Strategy | `PermissionGate`, `Approver` (terminal now; web and Telegram later) |
 | Factory / registry | `providers.factory.build_provider`, `tools.servers.BUILTIN_SERVERS` |
-| Repository | `EventStore` hides SQLAlchemy from callers |
-| Observer | `EventSink` receives every agent event |
-| Composition root | `runtime.open_session` is the only place objects are wired |
+| Repository | `EventStore`, `ConversationStore` hide SQLAlchemy from callers |
+| Observer | `EventSink` receives every agent event; `FanOutSink` broadcasts them || Composition root | `runtime.open_session` is the only place objects are wired |
 | Dependency inversion | `Agent` depends on protocols in `agent/interfaces.py` |
