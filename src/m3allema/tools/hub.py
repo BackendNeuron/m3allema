@@ -29,6 +29,7 @@ from m3allema.agent.interfaces import ToolOutput
 from m3allema.config.models import McpServerConfig
 from m3allema.domain.tools import Risk, ToolSpec
 from m3allema.tools.servers import BUILTIN_SERVERS, ToolContext
+from m3allema.tools.trust import PendingTool, ToolTrustStore, TrustStatus, fingerprint
 
 SEPARATOR = "__"
 
@@ -66,6 +67,8 @@ class ToolHub:
     Args:
         builtin: Built-in servers by name (trusted, run in-process).
         external: External server configurations by name (untrusted).
+        trust: Approved fingerprints of external tools. When given, new or
+            changed external tools are hidden and listed in :attr:`pending`.
 
     """
 
@@ -73,12 +76,16 @@ class ToolHub:
         self,
         builtin: Mapping[str, MCPServer] | None = None,
         external: Mapping[str, McpServerConfig] | None = None,
+        trust: ToolTrustStore | None = None,
     ) -> None:
         self._builtin = dict(builtin or {})
         self._external = dict(external or {})
+        self._trust = trust
         self._stack = AsyncExitStack()
         self._specs: list[ToolSpec] = []
         self._routes: dict[str, _Route] = {}
+        self._pending: list[PendingTool] = []
+        self._prints: dict[str, dict[str, str]] = {}
 
     @classmethod
     def from_config(
@@ -86,6 +93,7 @@ class ToolHub:
         builtin_names: Sequence[str],
         external: Mapping[str, McpServerConfig],
         context: ToolContext,
+        trust: ToolTrustStore | None = None,
     ) -> ToolHub:
         """Create a hub with the named built-in servers and the external ones.
 
@@ -98,7 +106,7 @@ class ToolHub:
         if unknown:
             raise ValueError(f"unknown built-in tools: {', '.join(unknown)}")
         servers = {name: BUILTIN_SERVERS[name](context) for name in builtin_names}
-        return cls(servers, external)
+        return cls(servers, external, trust)
 
     async def __aenter__(self) -> Self:
         try:
@@ -122,8 +130,17 @@ class ToolHub:
         await self._stack.aclose()
 
     def specs(self) -> Sequence[ToolSpec]:
-        """Every tool from every connected server."""
+        """Every tool the model may use (pending external tools excluded)."""
         return tuple(self._specs)
+
+    @property
+    def pending(self) -> Sequence[PendingTool]:
+        """External tools hidden until the owner approves them."""
+        return tuple(self._pending)
+
+    def fingerprints(self, server: str) -> Mapping[str, str]:
+        """Return the current fingerprints of an external server's tools, for approving them."""
+        return dict(self._prints.get(server, {}))
 
     async def call(self, name: str, arguments: dict[str, Any]) -> ToolOutput:
         """Run a tool on whichever server owns it."""
@@ -143,19 +160,35 @@ class ToolHub:
             for tool in page.tools:
                 if allow is not None and tool.name not in allow:
                     continue
+                description = tool.description or tool.title or tool.name
+                schema = dict(tool.input_schema)
+                if not trusted and not self._approved(server, tool.name, description, schema):
+                    continue
                 qualified = f"{server}{SEPARATOR}{tool.name}"
                 self._routes[qualified] = _Route(connected, tool.name)
                 self._specs.append(
                     ToolSpec(
                         name=qualified,
-                        description=tool.description or tool.title or tool.name,
-                        input_schema=dict(tool.input_schema),
+                        description=description,
+                        input_schema=schema,
                         risk=risk_from_annotations(tool.annotations) if trusted else Risk.EXTERNAL,
                     )
                 )
             cursor = page.next_cursor
             if not cursor:
                 break
+
+    def _approved(self, server: str, tool: str, description: str, schema: dict[str, Any]) -> bool:
+        """Record the tool's fingerprint and say whether it may be shown to the model."""
+        print_ = fingerprint(tool, description, schema)
+        self._prints.setdefault(server, {})[tool] = print_
+        if self._trust is None:
+            return True
+        status = self._trust.status(server, tool, print_)
+        if status is TrustStatus.TRUSTED:
+            return True
+        self._pending.append(PendingTool(server, tool, description, status))
+        return False
 
 
 def _target(config: McpServerConfig) -> str | StdioServerParameters:

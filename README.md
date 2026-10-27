@@ -21,10 +21,10 @@ built for business owners, and **trust is the product**:
 - **Built on MCP.** Her tools are MCP servers, and any MCP server plugs in.
 - **Speaks your language.** English, Arabic, Egyptian and Gulf dialect, and Franco-Arabic.
 
-> **Status: early development (Phase 1, milestone 2).** The agent loop, providers, file,
-> Excel, Word/PDF, web and sandboxed shell tools, `policy.yaml`, budgets, receipts and
-> resumable conversations work from the CLI. Gmail, the web dashboard and more are on the
-> [roadmap](#roadmap).
+> **Status: early development (Phase 1, milestone 3).** The agent loop, providers, file,
+> Excel, Word/PDF, web, shell, Gmail, Calendar and Sheets tools, `policy.yaml`, budgets,
+> receipts and resumable conversations work from the CLI. The web dashboard and more are on
+> the [roadmap](#roadmap).
 
 ## Quick start
 
@@ -91,6 +91,8 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | `m3allema conversations` | Saved conversations you can resume |
 | `m3allema runs list` | Recent runs with status, tokens, cost and today's spend |
 | `m3allema runs show ID` | Replay every step of a run |
+| `m3allema google connect` | Sign in to Google once ([setup guide](docs/google-setup.md)) |
+| `m3allema mcp list` / `mcp trust NAME` | Review and approve external MCP servers' tools |
 
 Inside `chat`: `/compact` summarises the conversation and continues from the summary (the
 original stays saved), `/new` starts fresh, `/help` lists commands. `mek` is a short alias
@@ -108,6 +110,19 @@ for `m3allema`.
 | `docs` | write Word | ask |
 | `web` | fetch a public page (private networks blocked) | auto |
 | `shell` | run a command in a Docker sandbox with no network (opt-in) | ask |
+| `gmail` | search, read | auto |
+| `gmail` | draft, archive | ask |
+| `gmail` | **send** | ask (external) |
+| `calendar` | list events | auto |
+| `calendar` | **create event with invitations** | ask (external) |
+| `sheets` | read range | auto |
+| `sheets` | append rows / **overwrite range** | ask |
+
+Google tools need a one-time sign-in: see [docs/google-setup.md](docs/google-setup.md).
+
+External MCP servers are untrusted: their tools always ask before running, and a tool that is
+new or whose description changed stays hidden until you approve it with `m3allema mcp trust`.
+This blocks "tool poisoning", where a server slips instructions into a tool description.
 
 ## Development
 
@@ -126,7 +141,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 |---|---|
 | ✅ 1. Foundation | Agent loop, Claude + OpenAI-compatible providers, files and web tools (MCP), permission gate, event log, CLI |
 | ✅ 2. Trust layer + documents | `policy.yaml`, budgets, cost per run, receipts, resumable conversations and `/compact`, Excel and Word/PDF tools, sandboxed shell, large-output paging |
-| 3. Google + MCP | Gmail, Calendar, Sheets, external MCP hardening |
+| ✅ 3. Google + MCP | Gmail, Calendar, Sheets with encrypted sign-in; external MCP tools pinned and approved before use |
 | 4. Web dashboard | Live run timeline, approve buttons, cost per run, onboarding interview |
 | 5. Memory, skills, Telegram | Learned skills with approval, voice notes (local Whisper), Telegram approvals |
 | 6. Evals + launch | Public eval suite and pass rate, Docker one-command setup |

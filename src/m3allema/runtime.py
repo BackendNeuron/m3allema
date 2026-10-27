@@ -27,6 +27,7 @@ from m3allema.storage.database import Database
 from m3allema.storage.event_store import EventStore
 from m3allema.tools.hub import ToolHub
 from m3allema.tools.servers import ToolContext
+from m3allema.tools.trust import PendingTool, ToolTrustStore
 from m3allema.workspace.prompt import PromptBuilder
 from m3allema.workspace.workspace import Workspace
 
@@ -59,6 +60,7 @@ class Session:
     policy: Policy
     agent: Agent
     stores: Stores
+    pending_tools: tuple[PendingTool, ...] = ()
 
 
 def open_stores(workspace: Workspace) -> Stores:
@@ -66,6 +68,11 @@ def open_stores(workspace: Workspace) -> Stores:
     url = read_storage_url(workspace.config_path) or workspace.default_database_url
     database = Database(url)
     return Stores(database, EventStore(database), ConversationStore(database))
+
+
+def trust_store(workspace: Workspace) -> ToolTrustStore:
+    """Approved fingerprints of the workspace's external MCP tools."""
+    return ToolTrustStore(workspace.state_dir / "mcp_trust.json")
 
 
 def google_auth(workspace: Workspace) -> GoogleAuth:
@@ -120,7 +127,7 @@ async def open_session(
         sink = FanOutSink([stores.events, ReceiptWriter(workspace.receipts_dir, on_receipt)])
         tool_context = ToolContext(workspace.files_dir, google_auth(workspace))
         async with ToolHub.from_config(
-            config.builtin_tools, config.mcp_servers, tool_context
+            config.builtin_tools, config.mcp_servers, tool_context, trust_store(workspace)
         ) as hub:
             agent = Agent(
                 model=main,
@@ -138,6 +145,6 @@ async def open_session(
                 conversation_id=conversation_id,
                 history=history,
             )
-            yield Session(workspace, config, policy, agent, stores)
+            yield Session(workspace, config, policy, agent, stores, tuple(hub.pending))
     finally:
         stores.close()

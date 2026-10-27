@@ -57,7 +57,8 @@ models:
 
 Built-in MCP servers to enable: `files`, `web`. Default: both.
 
-Default: `[files, excel, docs, web]`. Add `shell` to enable the Docker sandbox.
+Default: `[files, excel, docs, web]`. Add `shell` to enable the Docker sandbox, and
+`gmail`, `calendar`, `sheets` after [connecting Google](google-setup.md).
 
 | Server | Tools | Risk |
 |---|---|---|
@@ -69,6 +70,14 @@ Default: `[files, excel, docs, web]`. Add `shell` to enable the Docker sandbox.
 | `docs` | `write_docx` (headings, bullets, paragraphs) | write |
 | `web` | `fetch_url` (public http(s) only, private networks blocked) | read |
 | `shell` | `run_command` in a container: no network, 512 MB, 1 CPU, non-root, sees only `files/` | external |
+| `gmail` | `search_emails`, `read_email` | read |
+| `gmail` | `create_draft`, `archive_email` | write |
+| `gmail` | `send_email` | external |
+| `calendar` | `list_events` | read |
+| `calendar` | `create_event` (sends invitations) | external |
+| `sheets` | `read_range` | read |
+| `sheets` | `append_rows` | write |
+| `sheets` | `update_range` (overwrites cells) | external |
 
 Tool output longer than 8,000 characters is saved under `files/_tool_outputs/`; the model
 gets the beginning and reads the rest a page at a time.
@@ -112,7 +121,9 @@ When a budget is reached the run stops with status `budget`. The day is counted 
 ## `mcp_servers`
 
 External MCP servers. Their tools appear as `<name>__<tool>` and are always treated as
-`external` risk, so they ask before running.
+`external` risk, so they ask before running. Each tool's name, description and input schema
+are fingerprinted: a tool that is new or has changed stays hidden until you approve it with
+`m3allema mcp trust <name>` (review first with `m3allema mcp list`).
 
 ```yaml
 mcp_servers:

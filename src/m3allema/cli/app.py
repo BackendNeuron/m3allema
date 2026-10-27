@@ -11,11 +11,12 @@ from typing import Annotated, Any, NoReturn
 import typer
 from rich.console import Console
 from rich.markup import escape
+from rich.prompt import Confirm
 from rich.table import Table
 
 from m3allema import __version__
 from m3allema.cli.render import EventRenderer, terminal_approver
-from m3allema.config.loader import ConfigError
+from m3allema.config.loader import ConfigError, load_config
 from m3allema.integrations.google.auth import SCOPES, GoogleAuthError
 from m3allema.providers.base import ProviderError
 from m3allema.runtime import (
@@ -25,7 +26,10 @@ from m3allema.runtime import (
     google_auth,
     open_session,
     open_stores,
+    trust_store,
 )
+from m3allema.tools.hub import ToolHub
+from m3allema.tools.trust import PendingTool
 from m3allema.workspace.workspace import Workspace, WorkspaceError
 
 app = typer.Typer(
@@ -38,6 +42,8 @@ runs_app = typer.Typer(help="Inspect past runs from the event log.", no_args_is_
 app.add_typer(runs_app, name="runs")
 google_app = typer.Typer(help="Connect Gmail, Calendar and Sheets.", no_args_is_help=True)
 app.add_typer(google_app, name="google")
+mcp_app = typer.Typer(help="Review and approve external MCP servers.", no_args_is_help=True)
+app.add_typer(mcp_app, name="mcp")
 
 console = Console()
 
@@ -219,13 +225,81 @@ def google_disconnect(workspace: WorkspaceOption = Path()) -> None:
     )
 
 
+@mcp_app.command("list")
+def mcp_list(workspace: WorkspaceOption = Path()) -> None:
+    """Show external MCP servers and which of their tools wait for approval."""
+    _run_async(_mcp_review(workspace, server=None, approve=False))
+
+
+@mcp_app.command("trust")
+def mcp_trust(
+    server: Annotated[str, typer.Argument(help="Server name from config.yaml mcp_servers.")],
+    workspace: WorkspaceOption = Path(),
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Approve without asking.")] = False,
+) -> None:
+    """Review an external server's tools and approve them as they are now."""
+    _run_async(_mcp_review(workspace, server=server, approve=True, assume_yes=yes))
+
+
+async def _mcp_review(
+    root: Path, *, server: str | None, approve: bool, assume_yes: bool = False
+) -> None:
+    ws = _workspace(root)
+    config = load_config(ws.config_path)
+    servers = config.mcp_servers
+    if server is not None:
+        if server not in servers:
+            _fail(f"no MCP server named {server!r} in config.yaml")
+        servers = {server: servers[server]}
+    if not servers:
+        console.print("No external MCP servers are configured.")
+        return
+    store = trust_store(ws)
+    async with ToolHub({}, servers, store) as hub:
+        pending = {(p.server, p.name): p for p in hub.pending}
+        for name in servers:
+            console.print(f"\n[bold]{escape(name)}[/bold]")
+            for tool in sorted(hub.fingerprints(name)):
+                waiting = pending.get((name, tool))
+                if waiting is None:
+                    console.print(f"  [green]approved[/green]  {escape(tool)}")
+                    continue
+                console.print(f"  [yellow]{waiting.status.value:<8}[/yellow]  {escape(tool)}")
+                console.print(f"    [dim]{escape(waiting.description[:300])}[/dim]")
+        if not approve or server is None:
+            return
+        if not pending:
+            console.print("\nNothing new to approve.")
+            return
+        if not assume_yes and not await asyncio.to_thread(
+            Confirm.ask, f"Approve these tools from {server}?", console=console, default=False
+        ):
+            console.print("Not approved.")
+            return
+        prints = hub.fingerprints(server)
+        store.trust(server, prints)
+        console.print(f"[green]Approved {len(prints)} tools from {escape(server)}.[/green]")
+
+
+def _warn_pending(pending: tuple[PendingTool, ...]) -> None:
+    if not pending:
+        return
+    servers = sorted({p.server for p in pending})
+    console.print(
+        f"[yellow]{len(pending)} external tool(s) are hidden until you approve them "
+        f"(new or changed): run 'm3allema mcp trust {servers[0]}'.[/yellow]"
+    )
+
+
 async def _run_task(root: Path, task: str) -> None:
     async with _open(root) as session:
+        _warn_pending(session.pending_tools)
         await _stream(session, task)
 
 
 async def _chat(root: Path, resume: str | None) -> None:
     async with _open(root, resume) as session:
+        _warn_pending(session.pending_tools)
         agent = session.agent
         if resume:
             count = len(agent.history)
