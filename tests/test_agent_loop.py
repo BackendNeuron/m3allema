@@ -1,8 +1,11 @@
+from typing import Any
+
 import pytest
 
 from fakes import READ_TOOL, SEND_TOOL, FakeTools, ScriptedProvider, turn
 from m3allema.agent import loop as loop_module
-from m3allema.agent.loop import Agent
+from m3allema.agent.interfaces import ToolOutput
+from m3allema.agent.loop import TOOL_FAILED_NOTE, Agent
 from m3allema.agent.permissions import PolicyGate
 from m3allema.config.models import AgentSettings
 from m3allema.domain.events import AgentEvent, RunFinished, ToolCallFinished
@@ -102,6 +105,19 @@ async def test_tool_output_cannot_close_its_own_block() -> None:
     content = provider.requests[1].messages[-1].results[0].content  # type: ignore[union-attr]
     assert content.count("</tool_output>") == 1
     assert content.endswith("</tool_output>")
+
+
+async def test_a_failed_tool_call_is_flagged_in_m3allemas_own_words() -> None:
+    class FailingTools(FakeTools):
+        async def call(self, name: str, arguments: dict[str, Any]) -> ToolOutput:
+            return ToolOutput("'prices.txt' already exists", is_error=True)
+
+    call = ToolCall("c1", "files__read_file", {"path": "prices.txt"})
+    provider = ScriptedProvider(turn("", call), turn("It already exists."))
+    await collect(make_agent(provider, FailingTools([READ_TOOL])), "write it")
+    content = provider.requests[1].messages[-1].results[0].content  # type: ignore[union-attr]
+    assert content.startswith(TOOL_FAILED_NOTE), "the failure is stated outside the data"
+    assert "already exists" in content.split("<tool_output")[1]
 
 
 async def test_refusals_from_m3allema_are_not_marked_as_tool_data() -> None:

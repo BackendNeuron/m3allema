@@ -63,6 +63,12 @@ INVALID_TOOL_CALL_NUDGE = (
     "Your last tool call was rejected: {error}. Call only the tools you were given, with "
     "their exact names and valid JSON arguments."
 )
+TOOL_FAILED_NOTE = (
+    "This tool call FAILED and nothing was done. Do not tell the owner it succeeded; "
+    "fix the call or explain what went wrong."
+)
+"""Put before failed tool output, which some providers cannot flag as an error."""
+
 MAX_INVALID_TOOL_CALLS = 2
 """Rejected tool calls a run recovers from before it fails."""
 
@@ -399,6 +405,10 @@ def as_untrusted(tool: str, result: ToolResult) -> ToolResult:
     """
     body = result.content.replace("</tool_output", "<\\/tool_output")
     wrapped = f'<tool_output tool="{tool}">\n{body}\n</tool_output>'
+    if result.is_error:
+        # Not every provider has an error flag on tool results (OpenAI-style APIs do not),
+        # so say it in M3allema's own words, outside the data block.
+        wrapped = f"{TOOL_FAILED_NOTE}\n{wrapped}"
     return dataclasses.replace(result, content=wrapped)
 
 

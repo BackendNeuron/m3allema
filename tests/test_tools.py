@@ -46,6 +46,26 @@ def test_resolve_inside_rejects_escapes(tmp_path: Path, path: str) -> None:
         resolve_inside(tmp_path, path)
 
 
+@pytest.mark.parametrize("path", ["files/prices.txt", "./files/prices.txt", "files\\prices.txt"])
+def test_a_files_prefix_means_the_files_folder_itself(tmp_path: Path, path: str) -> None:
+    root = tmp_path / "files"
+    root.mkdir()
+    assert resolve_inside(root, path) == (root / "prices.txt").resolve()
+
+
+def test_a_real_files_subfolder_is_kept(tmp_path: Path) -> None:
+    root = tmp_path / "files"
+    (root / "files").mkdir(parents=True)
+    assert resolve_inside(root, "files/a.txt") == (root / "files" / "a.txt").resolve()
+
+
+def test_the_prefix_cannot_be_used_to_escape(tmp_path: Path) -> None:
+    root = tmp_path / "files"
+    root.mkdir()
+    with pytest.raises(PathOutsideRootError):
+        resolve_inside(root, "files/../../secret.txt")
+
+
 def test_unknown_builtin_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="nope"):
         ToolHub.from_config(["nope"], {}, ToolContext(tmp_path))

@@ -36,10 +36,25 @@ def resolve_inside(root: Path, relative: str) -> Path:
 
     """
     root = root.resolve()
+    relative = _without_folder_prefix(root, relative)
     target = (root / relative).resolve()
     if target != root and not target.is_relative_to(root):
         raise PathOutsideRootError(f"{relative!r} is outside the workspace files folder")
     return target
+
+
+def _without_folder_prefix(root: Path, relative: str) -> str:
+    """Treat ``files/report.xlsx`` as ``report.xlsx`` when the root is the files folder.
+
+    Models naturally name paths from the workspace ("files/..."), which would
+    otherwise create a confusing nested ``files/files/`` folder. A real
+    sub-folder with the root's own name is left alone.
+    """
+    prefix = f"{root.name}/"
+    normalized = relative.replace("\\", "/").removeprefix("./")
+    if normalized.startswith(prefix) and not (root / root.name).is_dir():
+        return normalized[len(prefix) :]
+    return relative
 
 
 def create_files_server(root: Path) -> MCPServer:
@@ -49,7 +64,7 @@ def create_files_server(root: Path) -> MCPServer:
     server = MCPServer(
         "files",
         instructions="Read, write and search documents in the business's files folder. "
-        "Paths are relative to that folder.",
+        "Paths are relative to that folder: write 'prices.txt', not 'files/prices.txt'.",
     )
 
     def display(path: Path) -> str:
