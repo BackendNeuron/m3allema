@@ -154,6 +154,15 @@ class Outcome:
     approvals: list[str] = field(default_factory=list)
 
 
+def _plain(text: str) -> str:
+    """Collapse every kind of whitespace to one space.
+
+    Models often use narrow or non-breaking spaces ("13 000", "Cairo Hotel"),
+    which should not fail a check that a reader would pass.
+    """
+    return " ".join(text.split())
+
+
 def evaluate(check: Check, outcome: Outcome) -> str | None:
     """Return why ``check`` failed, or ``None`` when it passed."""
     from fnmatch import fnmatchcase
@@ -170,8 +179,8 @@ def evaluate(check: Check, outcome: Outcome) -> str | None:
         path = outcome.files_root / check.path
         if not path.is_file():
             return f"{check.path} missing"
-        text = read_text_any(path).casefold()
-        missing = [v for v in check.values if v.casefold() not in text]
+        text = _plain(read_text_any(path)).casefold()
+        missing = [v for v in check.values if _plain(v).casefold() not in text]
         return f"{check.path} lacks {missing}" if missing else None
     if isinstance(check, ToolCalled):
         return None if matches(outcome.tools_run, check.tool) else f"{check.tool} never ran"
@@ -182,11 +191,11 @@ def evaluate(check: Check, outcome: Outcome) -> str | None:
         asked = matches(outcome.approvals, check.tool)
         return None if asked else f"no approval asked for {check.tool}"
     if isinstance(check, AnswerContains):
-        answer = outcome.answer.casefold()
-        missing = [v for v in check.values if v.casefold() not in answer]
+        answer = _plain(outcome.answer).casefold()
+        missing = [v for v in check.values if _plain(v).casefold() not in answer]
         return f"answer lacks {missing}" if missing else None
     if isinstance(check, AnswerMatches):
-        found = re.search(check.pattern, outcome.answer)
+        found = re.search(check.pattern, _plain(outcome.answer))
         return None if found else f"answer does not match {check.pattern!r}"
     return None if outcome.status == check.status else f"status {outcome.status}"
 

@@ -3,7 +3,7 @@ from m3allema.agent.loop import Agent
 from m3allema.agent.permissions import PolicyGate
 from m3allema.config.models import AgentSettings
 from m3allema.domain.events import AgentEvent, RunFinished, ToolCallFinished
-from m3allema.domain.messages import StopReason, ToolCall, ToolResultMessage
+from m3allema.domain.messages import StopReason, ToolCall, ToolResultMessage, UserMessage
 from m3allema.domain.tools import ToolSpec
 from m3allema.providers.base import INVALID_ARGUMENTS_KEY, ProviderError
 from m3allema.providers.factory import ResolvedModel
@@ -52,6 +52,24 @@ async def test_plain_answer_completes_in_one_step() -> None:
     agent = make_agent(ScriptedProvider(turn("Hello!")), FakeTools([]))
     result = finished(await collect(agent, "hi"))
     assert (result.status, result.answer, result.steps) == ("completed", "Hello!", 1)
+
+
+async def test_an_empty_reply_is_nudged_once_and_not_kept() -> None:
+    provider = ScriptedProvider(turn(""), turn("13,000 EGP"))
+    agent = make_agent(provider, FakeTools([]))
+    result = finished(await collect(agent, "total?"))
+    assert (result.status, result.answer, result.steps) == ("completed", "13,000 EGP", 2)
+    second = provider.requests[1].messages
+    nudge = second[-1]
+    assert isinstance(nudge, UserMessage)
+    assert "empty" in nudge.text, "the model is asked to continue"
+    assert all(getattr(m, "blocks", True) for m in second), "no empty assistant turn is kept"
+
+
+async def test_a_second_empty_reply_ends_the_run() -> None:
+    agent = make_agent(ScriptedProvider(turn(""), turn("")), FakeTools([]))
+    result = finished(await collect(agent, "total?"))
+    assert (result.status, result.answer, result.steps) == ("completed", "", 2)
 
 
 async def test_tool_call_runs_and_result_goes_back_to_model() -> None:

@@ -48,6 +48,12 @@ COMPACT_INSTRUCTION = (
     "Note which actions were completed and which were declined. Reply with the summary only."
 )
 
+EMPTY_TURN_NUDGE = (
+    "Your last reply was empty. Continue the task: use a tool if you still need one, "
+    "otherwise give the owner your answer."
+)
+"""Sent once per run when the model ends a turn with no text and no tool call."""
+
 
 class Agent:
     """Runs tasks for the owner within one conversation.
@@ -134,6 +140,7 @@ class Agent:
         steps = 0
         answer = ""
         status = "max_steps"
+        nudged = False
 
         yield self._emit(
             run_id,
@@ -162,9 +169,21 @@ class Agent:
 
                 usage += turn.usage
                 cost = None if cost is None or turn.cost_usd is None else cost + turn.cost_usd
+                calls = turn.message.tool_calls
+                if (
+                    not calls
+                    and not turn.message.text.strip()
+                    and turn.stop_reason is StopReason.END_TURN
+                    and not nudged
+                ):
+                    # Some reasoning models occasionally end a turn with nothing at all.
+                    # Ask once for the answer instead of finishing with an empty reply;
+                    # the empty turn is not kept, since some providers reject it.
+                    nudged = True
+                    self._append(UserMessage(EMPTY_TURN_NUDGE))
+                    continue
                 self._append(turn.message)
                 answer = turn.message.text or answer
-                calls = turn.message.tool_calls
 
                 if turn.stop_reason in (StopReason.REFUSAL, StopReason.MAX_TOKENS):
                     # A cut-off tool call may have partial arguments: never run it.

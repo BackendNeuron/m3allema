@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
@@ -69,6 +70,10 @@ WorkspaceOption = Annotated[
 
 def main() -> None:
     """Entry point used by the ``m3allema`` and ``mek`` scripts."""
+    # The MCP server library turns on INFO logging for everything; per-request HTTP
+    # lines from the SDKs only clutter the terminal.
+    for name in ("httpx", "httpcore", "openai", "anthropic", "mcp"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     app()
 
 
