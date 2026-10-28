@@ -38,3 +38,17 @@ mcp_servers: {}
 #  notion:
 #    transport: http
 #    url: https://mcp.notion.com/mcp
+
+# Voice input (dashboard microphone, Telegram voice notes). Transcripts are
+# shown for you to review; they are never sent on their own.
+speech:
+  engine: local             # local (pip install "m3allema[voice]") | groq | off
+  model: small
+  language: auto            # or ar, en
+#  engine: groq
+#  api_key: env:GROQ_API_KEY
+
+# Telegram bot (m3allema telegram). See docs/telegram.md.
+# telegram:
+#   bot_token: env:TELEGRAM_BOT_TOKEN
+#   owner_ids: []

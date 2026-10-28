@@ -55,10 +55,9 @@ models:
 
 ## `builtin_tools`
 
-Built-in MCP servers to enable: `files`, `web`. Default: both.
-
-Default: `[files, excel, docs, web]`. Add `shell` to enable the Docker sandbox, and
-`gmail`, `calendar`, `sheets` after [connecting Google](google-setup.md).
+Built-in MCP servers to enable. Default: `[files, excel, docs, web, memory, skills]`. Add
+`shell` to enable the Docker sandbox, and `gmail`, `calendar`, `sheets` after
+[connecting Google](google-setup.md).
 
 | Server | Tools | Risk |
 |---|---|---|
@@ -78,6 +77,10 @@ Default: `[files, excel, docs, web]`. Add `shell` to enable the Docker sandbox, 
 | `sheets` | `read_range` | read |
 | `sheets` | `append_rows` | write |
 | `sheets` | `update_range` (overwrites cells) | external |
+| `memory` | `remember` (adds a line to `MEMORY.md`) | write, always ask |
+| `memory` | `forget` | external |
+| `skills` | `list_skills`, `read_skill` | read |
+| `skills` | `save_skill` (new file in `skills/`) | write, always ask |
 
 Tool output longer than 8,000 characters is saved under `files/_tool_outputs/`; the model
 gets the beginning and reads the rest a page at a time.
@@ -148,12 +151,40 @@ The database holds runs, the event log and every conversation message (which is 
 `chat --resume` reads). Database migrations are not set up yet: after upgrading during early
 development, delete `.m3allema/m3allema.db` if the CLI reports a missing column.
 
+## `speech`
+
+```yaml
+speech:
+  engine: local       # local | groq | off
+  model: small        # faster-whisper model for local: tiny, base, small, medium...
+  language: auto      # auto, or a language code such as ar or en
+  api_key: env:GROQ_API_KEY   # only for groq
+```
+
+Voice input for the dashboard microphone and Telegram voice notes. `local` runs
+faster-whisper on the CPU (int8) and needs `pip install "m3allema[voice]"`; the model downloads
+on first use (about 500 MB for `small`). `groq` sends the audio to Groq's hosted
+`whisper-large-v3-turbo`. Transcripts are always shown for review and never sent on their own.
+
+## `telegram`
+
+```yaml
+telegram:
+  bot_token: env:TELEGRAM_BOT_TOKEN
+  owner_ids: [123456789]
+```
+
+Enables `m3allema telegram`. Only the listed Telegram user ids are served. See
+[telegram.md](telegram.md).
+
 # Environment variables
 
 | Variable | Used for |
 |---|---|
 | `ANTHROPIC_API_KEY` and any `env:NAME` in `config.yaml` | Provider keys, read from `.env` |
 | `M3ALLEMA_SECRET_KEY` | Encrypts the Google sign-in token; created by `m3allema google connect` |
+| `TELEGRAM_BOT_TOKEN` | The bot token from @BotFather, referenced by `telegram.bot_token` |
+| `GROQ_API_KEY` | Groq transcription, when `speech.engine` is `groq` |
 | `M3ALLEMA_DASHBOARD_TOKEN` | Fixed access token for `m3allema serve`. Without it, a new random token is made at each start and printed in the dashboard link. Set it only for development. |
 
 # The onboarding interview

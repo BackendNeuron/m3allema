@@ -21,10 +21,11 @@ built for business owners, and **trust is the product**:
 - **Built on MCP.** Her tools are MCP servers, and any MCP server plugs in.
 - **Speaks your language.** English, Arabic, Egyptian and Gulf dialect, and Franco-Arabic.
 
-> **Status: early development (Phase 1, milestone 4 done).** The agent loop, providers,
+> **Status: early development (Phase 1, milestone 5 done).** The agent loop, providers,
 > file, Excel, Word/PDF, web, shell, Gmail, Calendar and Sheets tools, `policy.yaml`,
-> budgets, receipts, resumable conversations, the web dashboard and the onboarding interview
-> all work. Memory, skills and Telegram are next on the [roadmap](#roadmap).
+> budgets, receipts, resumable conversations, the web dashboard, onboarding, memory, skills,
+> voice input and the Telegram bot all work. Evals and Docker are next on the
+> [roadmap](#roadmap).
 
 ## Quick start
 
@@ -46,7 +47,7 @@ she did, what it cost and what still needs you.
 ## How it works
 
 ```
- CLI (today) · Web UI · Telegram (later)
+ CLI · Web dashboard · Telegram
             │
             ▼
    runtime.open_session()            composition root: wires everything below
@@ -75,6 +76,8 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | `BUSINESS.md` | Facts about the business |
 | `OWNER.md` | The owner's preferences |
 | `RULES.md` | Soft guidance for the model |
+| `MEMORY.md` | Facts she learned, one dated line each; edit or delete freely |
+| `skills/` | Procedures for recurring jobs, one Markdown file each |
 | `config.yaml` | Providers, models, tools, prices ([reference](docs/configuration.md)) |
 | `policy.yaml` | **Enforced** permissions (auto / ask / deny) and budgets |
 | `.env` | API keys, never committed |
@@ -91,6 +94,7 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | `m3allema chat --resume` | Continue the last conversation (`-c ID` for a specific one) |
 | `m3allema run "TASK"` | Run one task and exit |
 | `m3allema serve` | Open the web dashboard on `127.0.0.1` |
+| `m3allema telegram` | Run the Telegram bot ([setup guide](docs/telegram.md)) |
 | `m3allema conversations` | Saved conversations you can resume |
 | `m3allema runs list` | Recent runs with status, tokens, cost and today's spend |
 | `m3allema runs show ID` | Replay every step of a run |
@@ -117,6 +121,34 @@ in `config.yaml` and `policy.yaml` without touching your comments or other setti
 file is backed up to `.m3allema/backups/` first. Run it again any time from Setup or with
 `m3allema onboard`.
 
+The microphone button records a voice message, transcribes it (locally with faster-whisper
+`small` by default) and puts the text in the message box for you to edit. It is never sent on
+its own. Local transcription needs `pip install "m3allema[voice]"`; set `speech.engine: groq`
+to use Groq's hosted Whisper instead.
+
+### Memory and skills
+
+**Memory** is `MEMORY.md`. When you tell her something that will matter later ("Cairo Hotel
+pays net 30"), she offers to remember it, and with your approval adds one dated line. The file
+is part of every conversation, so she knows it next time. Delete a line and she forgets it.
+
+**Skills** are written procedures in `skills/`, one Markdown file each with a one-line
+description. She sees the list of skills and reads a skill's full steps when a task matches.
+New workspaces start with five: invoice summary, inbox triage, meeting scheduler, weekly
+report and client follow-up. You can write your own, and after a job goes well she can
+propose saving it as a new skill.
+
+Memory and skills outlive a conversation, so saving them always needs your approval (the
+template `policy.yaml` sets `memory__*` and `skills__save_skill` to `ask` even when `write`
+is `auto`). That stops an email or web page from planting lasting instructions.
+
+### Telegram
+
+`m3allema telegram` lets you send tasks and voice notes from your phone and approve actions
+with a tap. Only the Telegram ids you list are served. Voice notes come back as a transcript
+with Send and Edit buttons, so nothing runs until you confirm. See
+[docs/telegram.md](docs/telegram.md).
+
 ## Built-in tools
 
 | Server | Tools | Default policy |
@@ -136,6 +168,9 @@ file is backed up to `.m3allema/backups/` first. Run it again any time from Setu
 | `calendar` | **create event with invitations** | ask (external) |
 | `sheets` | read range | auto |
 | `sheets` | append rows / **overwrite range** | ask |
+| `memory` | remember a fact / forget facts | ask (always) |
+| `skills` | list, read | auto |
+| `skills` | save a new skill | ask (always) |
 
 Google tools need a one-time sign-in: see [docs/google-setup.md](docs/google-setup.md).
 
@@ -167,7 +202,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | ✅ 2. Trust layer + documents | `policy.yaml`, budgets, cost per run, receipts, resumable conversations and `/compact`, Excel and Word/PDF tools, sandboxed shell, large-output paging |
 | ✅ 3. Google + MCP | Gmail, Calendar, Sheets with encrypted sign-in; external MCP tools pinned and approved before use |
 | ✅ 4. Web dashboard | Live run timeline, approve buttons, cost per run, onboarding interview |
-| 5. Memory, skills, Telegram | Learned skills with approval, voice notes (local Whisper), Telegram approvals |
+| ✅ 5. Memory, skills, Telegram | Memory and learned skills with approval, five starter skills, voice input (local Whisper or Groq), Telegram tasks and approvals |
 | 6. Evals + launch | Public eval suite and pass rate, Docker one-command setup |
 
 ## License

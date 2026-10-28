@@ -8,7 +8,7 @@ adapters live at the edges and are wired together in one place.
 src/m3allema/
   domain/        plain data: messages, events, tool specs        (no dependencies)
   config/        typed config.yaml schema + loader                (pydantic)
-  workspace/     workspace folder, templates, system prompt
+  workspace/     workspace folder, templates, system prompt, onboarding, memory, skills
   providers/     LLMProvider interface + Anthropic / OpenAI-compatible adapters
   agent/         the loop, the permission gate, the interfaces it needs
   tools/         ToolHub (MCP client) + built-in MCP servers
@@ -16,6 +16,8 @@ src/m3allema/
   runtime.py     composition root: builds a ready Session
   cli/           Typer commands + Rich rendering
   server/        FastAPI dashboard: REST + one WebSocket per tab, WebApprover
+  speech.py      Transcriber protocol: local faster-whisper or Groq
+  telegram.py    Telegram bot (long polling) reusing WebApprover for approvals
 web/             React + Vite source of the dashboard (built into server/static)
 ```
 
@@ -44,6 +46,22 @@ The onboarding interview is plain REST (`/api/onboarding`) over
 `workspace/onboarding.py`, which the `onboard` CLI command uses too.
 Every request needs the token printed at start-up, and WebSocket connections must come from
 this local server's own origin.
+
+## Memory, skills, voice and Telegram
+
+Memory (`MEMORY.md`) and skills (`skills/*.md`) are plain files, read into the system prompt
+when a session opens: the whole memory file, and one line per skill (the full steps load on
+demand through `skills__read_skill`, so many skills cost little context). They change only
+through the `memory` and `skills` MCP servers, whose writes the template policy always sends
+to the owner for approval.
+
+Voice input goes through the `Transcriber` protocol (`speech.py`). The dashboard posts audio to
+`/api/transcribe` and receives text only; the Telegram bot replies with the transcript and
+Send/Edit buttons. In both, a transcript runs only after the owner sends it.
+
+The Telegram bot is another interface over `open_session`, like the CLI and the dashboard. It
+reuses `WebApprover` with a `send` function that renders approval requests as messages with
+inline buttons, so all three interfaces share one approval mechanism.
 
 ## Design decisions
 

@@ -140,6 +140,47 @@ def chat(
 
 
 @app.command()
+def telegram(
+    workspace: WorkspaceOption = Path(),
+    resume: Annotated[
+        bool, typer.Option("--resume", "-r", help="Continue the most recent conversation.")
+    ] = False,
+) -> None:
+    """Run the Telegram bot: tasks, voice notes and approvals from your phone."""
+    _run_async(_telegram(workspace, "latest" if resume else None))
+
+
+async def _telegram(root: Path, resume: str | None) -> None:
+    from m3allema.speech import SpeechError, build_transcriber
+    from m3allema.telegram import HttpBotApi, TelegramBot
+
+    config = load_config(_workspace(root).config_path)
+    if config.telegram is None:
+        _fail("add a telegram block to config.yaml (see docs/telegram.md)")
+    try:
+        transcriber = build_transcriber(config.speech)
+    except SpeechError as exc:
+        console.print(f"[yellow]Voice notes off:[/yellow] {escape(str(exc))}")
+        transcriber = None
+    api = HttpBotApi(config.telegram.bot_token)
+    bot = TelegramBot(api, config.telegram.owner_ids, transcriber)
+    if not config.telegram.owner_ids:
+        console.print(
+            "[yellow]No owner_ids yet.[/yellow] Send /start to the bot to see your id, add it to "
+            "telegram.owner_ids in config.yaml, then restart."
+        )
+    try:
+        async with open_session(root, approver=bot.approver, resume=resume) as session:
+            _warn_pending(session.pending_tools)
+            bot.attach(session.agent)
+            console.print("[green]Telegram bot running.[/green] Press Ctrl+C to stop.")
+            await bot.poll_forever()
+    finally:
+        bot.decline_all()
+        await api.close()
+
+
+@app.command()
 def serve(
     workspace: WorkspaceOption = Path(),
     port: Annotated[int, typer.Option(help="Local port.")] = 8765,
