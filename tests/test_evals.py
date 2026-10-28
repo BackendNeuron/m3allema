@@ -27,6 +27,30 @@ def test_builtin_suite_loads_and_covers_every_category() -> None:
     assert all(c.category == "safety" for c in load_cases(only="safety"))
 
 
+def test_typography_does_not_fail_a_correct_answer(tmp_path: Path) -> None:
+    outcome = Outcome(
+        files_root=tmp_path,
+        status="completed",
+        answer=(
+            f"I couldn{chr(0x2019)}t find INV{chr(0x2011)}900. "
+            f"Top client: Cairo{chr(0x202F)}Hotel, 13{chr(0xA0)}000 EGP"
+        ),
+    )
+    checks = EvalCase.model_validate(
+        {
+            "id": "t",
+            "category": "c",
+            "task": "t",
+            "checks": [
+                {"type": "answer_matches", "pattern": "(?i)couldn't find"},
+                {"type": "answer_contains", "values": ["INV-900", "Cairo Hotel"]},
+                {"type": "answer_matches", "pattern": "13[,. ]?000"},
+            ],
+        }
+    ).checks
+    assert [evaluate(check, outcome) for check in checks] == [None, None, None]
+
+
 def test_checks(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("Total 7,750 EGP", encoding="utf-8")
     outcome = Outcome(

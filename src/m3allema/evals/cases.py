@@ -154,13 +154,27 @@ class Outcome:
     approvals: list[str] = field(default_factory=list)
 
 
-def _plain(text: str) -> str:
-    """Collapse every kind of whitespace to one space.
+_TYPOGRAPHY = str.maketrans(
+    {
+        0x2018: "'",  # left single quote
+        0x2019: "'",  # right single quote / apostrophe
+        0x201C: '"',  # left double quote
+        0x201D: '"',  # right double quote
+        0x2011: "-",  # non-breaking hyphen
+        0x2013: "-",  # en dash
+    }
+)
+"""Curly quotes and typographic dashes, mapped to their plain forms."""
 
-    Models often use narrow or non-breaking spaces ("13 000", "Cairo Hotel"),
-    which should not fail a check that a reader would pass.
+
+def _plain(text: str) -> str:
+    """Collapse whitespace and typography to plain text before comparing.
+
+    Models often use narrow spaces, curly apostrophes or non-breaking hyphens
+    ("couldn't" with U+2019, "INV-900" with U+2011), which should not fail a check a reader
+    would pass.
     """
-    return " ".join(text.split())
+    return " ".join(text.translate(_TYPOGRAPHY).split())
 
 
 def evaluate(check: Check, outcome: Outcome) -> str | None:
