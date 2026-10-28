@@ -47,7 +47,7 @@ that the app is unverified because it's your own app: click **Continue**.
 Then enable the tools in `config.yaml`:
 
 ```yaml
-builtin_tools: [files, excel, docs, web, gmail, calendar, sheets]
+builtin_tools: [files, excel, docs, web, memory, skills, gmail, calendar, sheets]
 ```
 
 Check it with `m3allema google status`.
