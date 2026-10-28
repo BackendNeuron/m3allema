@@ -30,3 +30,16 @@ export function socketUrl(): string {
 
 export const money = (value: number | null | undefined): string =>
   value == null ? "unknown" : `$${value.toFixed(4)}`;
+
+export async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "X-M3allema-Token": token, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`${path} failed (${response.status}): ${detail.slice(0, 300)}`);
+  }
+  return (await response.json()) as T;
+}

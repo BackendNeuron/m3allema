@@ -74,6 +74,28 @@ def test_runs_and_conversations_start_empty(client: TestClient) -> None:
     assert client.get("/api/conversations", params=params).json() == []
 
 
+def test_onboarding_endpoints(client: TestClient) -> None:
+    params = {"token": TOKEN}
+    interview = client.get("/api/onboarding", params=params).json()
+    assert interview["needed"] is True
+    assert interview["questions"][0]["id"] == "business_name"
+    bad = client.post("/api/onboarding", params=params, json={"business_name": "x"})
+    assert bad.status_code == 422
+    good = client.post(
+        "/api/onboarding",
+        params=params,
+        json={"business_name": "Nour", "offering": "Cakes", "owner_name": "Mona"},
+    )
+    assert good.status_code == 200
+    assert "BUSINESS.md" in good.json()["changed"]
+    assert client.get("/api/onboarding", params=params).json()["needed"] is False
+    assert client.post("/api/onboarding", json={}).status_code == 401
+
+
+def test_index_is_revalidated(client: TestClient) -> None:
+    assert client.get("/").headers["cache-control"] == "no-cache"
+
+
 def test_websocket_rejects_missing_token(client: TestClient) -> None:
     with pytest.raises(WebSocketDisconnect), client.websocket_connect("/api/ws") as ws:
         ws.receive_json()

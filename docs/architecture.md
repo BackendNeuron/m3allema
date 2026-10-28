@@ -40,6 +40,8 @@ WebSocket (`/api/ws`), and `LiveSession` builds a normal `Session` for it throug
 `open_session` composition root as the CLI, so both interfaces share one code path.
 Approvals use `WebApprover`, an `Approver` strategy that sends an `approval_request` and waits
 for the browser's answer; unanswered requests (closed tab, 15 minute timeout) are declined.
+The onboarding interview is plain REST (`/api/onboarding`) over
+`workspace/onboarding.py`, which the `onboard` CLI command uses too.
 Every request needs the token printed at start-up, and WebSocket connections must come from
 this local server's own origin.
 

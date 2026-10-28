@@ -21,10 +21,10 @@ built for business owners, and **trust is the product**:
 - **Built on MCP.** Her tools are MCP servers, and any MCP server plugs in.
 - **Speaks your language.** English, Arabic, Egyptian and Gulf dialect, and Franco-Arabic.
 
-> **Status: early development (Phase 1, milestone 4).** The agent loop, providers, file,
-> Excel, Word/PDF, web, shell, Gmail, Calendar and Sheets tools, `policy.yaml`, budgets,
-> receipts and resumable conversations work from the CLI and the local web dashboard. The
-> onboarding interview and more are on the [roadmap](#roadmap).
+> **Status: early development (Phase 1, milestone 4 done).** The agent loop, providers,
+> file, Excel, Word/PDF, web, shell, Gmail, Calendar and Sheets tools, `policy.yaml`,
+> budgets, receipts, resumable conversations, the web dashboard and the onboarding interview
+> all work. Memory, skills and Telegram are next on the [roadmap](#roadmap).
 
 ## Quick start
 
@@ -34,6 +34,7 @@ Not on PyPI yet. Until the first release, install from source:
 uv tool install git+https://github.com/BackendNeuron/m3allema
 m3allema init my-business     # creates the workspace files
 cd my-business
+m3allema onboard              # a short interview that fills them in for your business
 cp .env.example .env          # then put your ANTHROPIC_API_KEY in .env
 m3allema chat
 ```
@@ -85,6 +86,7 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | Command | What it does |
 |---|---|
 | `m3allema init [PATH]` | Create a workspace |
+| `m3allema onboard` | Answer the setup interview (also in the dashboard) |
 | `m3allema chat` | Talk to M3allema |
 | `m3allema chat --resume` | Continue the last conversation (`-c ID` for a specific one) |
 | `m3allema run "TASK"` | Run one task and exit |
@@ -107,6 +109,13 @@ history. It listens only on `127.0.0.1`, and the link it prints carries a one-ti
 every request must present; connections from other websites are refused. The interface is
 built from `web/` (React, TypeScript, GSAP, Vite) and ships inside the Python package, so
 users do not need Node.js.
+
+On a new workspace the dashboard opens on **Setup**: a short interview about the business,
+the owner, M3allema's tone and languages, and which tools and limits to use. The answers
+rewrite `IDENTITY.md`, `BUSINESS.md`, `OWNER.md` and `RULES.md`, and set the matching lines
+in `config.yaml` and `policy.yaml` without touching your comments or other settings. Every
+file is backed up to `.m3allema/backups/` first. Run it again any time from Setup or with
+`m3allema onboard`.
 
 ## Built-in tools
 
@@ -157,7 +166,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | ✅ 1. Foundation | Agent loop, Claude + OpenAI-compatible providers, files and web tools (MCP), permission gate, event log, CLI |
 | ✅ 2. Trust layer + documents | `policy.yaml`, budgets, cost per run, receipts, resumable conversations and `/compact`, Excel and Word/PDF tools, sandboxed shell, large-output paging |
 | ✅ 3. Google + MCP | Gmail, Calendar, Sheets with encrypted sign-in; external MCP tools pinned and approved before use |
-| 4. Web dashboard | Live run timeline, approve buttons, cost per run, onboarding interview |
+| ✅ 4. Web dashboard | Live run timeline, approve buttons, cost per run, onboarding interview |
 | 5. Memory, skills, Telegram | Learned skills with approval, voice notes (local Whisper), Telegram approvals |
 | 6. Evals + launch | Public eval suite and pass rate, Docker one-command setup |
 

@@ -147,3 +147,24 @@ storage:
 The database holds runs, the event log and every conversation message (which is what
 `chat --resume` reads). Database migrations are not set up yet: after upgrading during early
 development, delete `.m3allema/m3allema.db` if the CLI reports a missing column.
+
+# Environment variables
+
+| Variable | Used for |
+|---|---|
+| `ANTHROPIC_API_KEY` and any `env:NAME` in `config.yaml` | Provider keys, read from `.env` |
+| `M3ALLEMA_SECRET_KEY` | Encrypts the Google sign-in token; created by `m3allema google connect` |
+| `M3ALLEMA_DASHBOARD_TOKEN` | Fixed access token for `m3allema serve`. Without it, a new random token is made at each start and printed in the dashboard link. Set it only for development. |
+
+# The onboarding interview
+
+`m3allema onboard` and the dashboard's Setup page ask the same questions (defined in
+`m3allema/workspace/onboarding.py`). The answers are validated, then:
+
+- `IDENTITY.md`, `BUSINESS.md`, `OWNER.md` and `RULES.md` are rewritten.
+- In `config.yaml`, the `builtin_tools:` line is set.
+- In `policy.yaml`, `write:`, `external:`, `per_run_usd:` and `per_day_usd:` are set.
+
+Other lines and comments are kept. A setting whose line cannot be found (because you
+restructured the file) is listed as "set by hand" instead of guessed. Previous versions go to
+`.m3allema/backups/<timestamp>/`.

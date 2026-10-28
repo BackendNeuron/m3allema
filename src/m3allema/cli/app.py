@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
 import typer
+from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from m3allema import __version__
@@ -30,6 +31,14 @@ from m3allema.runtime import (
 )
 from m3allema.tools.hub import ToolHub
 from m3allema.tools.trust import PendingTool
+from m3allema.workspace.onboarding import (
+    QUESTIONS,
+    Answers,
+    Kind,
+    Question,
+    apply_answers,
+    questions_json,
+)
 from m3allema.workspace.workspace import Workspace, WorkspaceError
 
 app = typer.Typer(
@@ -78,8 +87,31 @@ def init(
     workspace = Workspace.create(path, overwrite=force)
     console.print(f"[green]Workspace ready[/green] at {escape(str(workspace.root))}")
     console.print(
-        "Next: copy .env.example to .env, add your API key, then run [bold]m3allema chat[/bold]."
+        "Next: run [bold]m3allema onboard[/bold] (or use the dashboard), copy .env.example to "
+        ".env and add your API key, then run [bold]m3allema chat[/bold]."
     )
+
+
+@app.command()
+def onboard(workspace: WorkspaceOption = Path()) -> None:
+    """Answer a short interview that fills in the workspace files for your business."""
+    ws = _workspace(workspace)
+    defaults = {q["id"]: q["default"] for q in questions_json()}
+    answers: dict[str, Any] = {}
+    section = ""
+    for question in QUESTIONS:
+        if question.section != section:
+            section = question.section
+            console.print(f"\n[bold]{escape(section)}[/bold]")
+        answers[question.id] = _ask(question, defaults.get(question.id))
+    try:
+        result = apply_answers(ws, Answers.model_validate(answers))
+    except ValidationError as exc:
+        _fail(str(exc))
+    console.print(f"\n[green]Updated:[/green] {', '.join(result.changed) or 'nothing changed'}")
+    for item in result.skipped:
+        console.print(f"[yellow]Set by hand:[/yellow] {escape(item)}")
+    console.print(f"[dim]Previous versions: {escape(str(result.backup_dir))}[/dim]")
 
 
 @app.command()
@@ -410,6 +442,27 @@ def _run_async(coro: Coroutine[Any, Any, None]) -> None:
         _fail(str(exc))
     except KeyboardInterrupt:
         console.print("\n[dim]Stopped. Resume with: m3allema chat --resume[/dim]")
+
+
+def _ask(question: Question, default: Any) -> Any:
+    """Ask one interview question in the terminal."""
+    label = escape(question.prompt)
+    if question.help:
+        console.print(f"[dim]{escape(question.help)}[/dim]")
+    if question.kind is Kind.CHOICE:
+        return Prompt.ask(label, choices=list(question.options), default=default)
+    if question.kind in (Kind.LIST, Kind.MULTI):
+        hint = ", ".join(question.options) if question.options else "comma-separated"
+        shown = ", ".join(default) if isinstance(default, list) else ""
+        raw = Prompt.ask(f"{label} [dim]({escape(hint)})[/dim]", default=shown)
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    if question.kind is Kind.MONEY:
+        return Prompt.ask(label, default=str(default))
+    while True:
+        value = Prompt.ask(label, default=default or None)
+        if value or not question.required:
+            return value or ""
+        console.print("[red]This one is needed.[/red]")
 
 
 def _fail(message: str) -> NoReturn:

@@ -108,3 +108,28 @@ export interface RunEvent {
   payload: Record<string, unknown>;
   at: string;
 }
+
+export type QuestionKind = "text" | "long_text" | "list" | "choice" | "multi" | "money";
+export type Answer = string | number | string[];
+
+export interface Question {
+  id: string;
+  section: string;
+  prompt: string;
+  kind: QuestionKind;
+  help: string;
+  options: string[];
+  required: boolean;
+  default: Answer;
+}
+
+export interface Onboarding {
+  needed: boolean;
+  questions: Question[];
+}
+
+export interface OnboardingResult {
+  changed: string[];
+  skipped: string[];
+  backup_dir: string;
+}

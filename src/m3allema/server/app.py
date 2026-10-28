@@ -4,6 +4,7 @@ Endpoints:
 
 * ``GET /`` - the dashboard (static HTML, CSS and JS bundled with the package).
 * ``GET /api/...`` - status, runs, run events, conversations (read-only).
+* ``GET/POST /api/onboarding`` - the onboarding interview and its answers.
 * ``WS /api/ws`` - one live agent session: tasks in, events and approval
   requests out.
 
@@ -45,6 +46,12 @@ from m3allema.server.approvals import WebApprover
 from m3allema.storage.codec import message_to_dict
 from m3allema.storage.event_store import RunRecord
 from m3allema.storage.serialization import event_kind, event_to_payload
+from m3allema.workspace.onboarding import (
+    Answers,
+    apply_answers,
+    needs_onboarding,
+    questions_json,
+)
 from m3allema.workspace.workspace import Workspace
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -79,7 +86,8 @@ def create_app(
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+        # Revalidate every time, so a new version's hashed assets load after an upgrade.
+        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/status", dependencies=authed)
     async def status() -> dict[str, Any]:
@@ -138,6 +146,19 @@ def create_app(
             ]
         finally:
             stores.close()
+
+    @app.get("/api/onboarding", dependencies=authed)
+    async def onboarding_questions() -> dict[str, Any]:
+        return {"needed": needs_onboarding(workspace), "questions": questions_json()}
+
+    @app.post("/api/onboarding", dependencies=authed)
+    async def onboarding_apply(answers: Answers) -> dict[str, Any]:
+        result = apply_answers(workspace, answers)
+        return {
+            "changed": list(result.changed),
+            "skipped": list(result.skipped),
+            "backup_dir": result.backup_dir.relative_to(workspace.root).as_posix(),
+        }
 
     @app.websocket("/api/ws")
     async def live(websocket: WebSocket) -> None:

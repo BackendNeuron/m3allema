@@ -3,12 +3,15 @@ import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useState } 
 import { getJson, token } from "./api";
 import { Inspector } from "./components/Inspector";
 import { Intro } from "./components/Intro";
+import { Onboarding } from "./components/Onboarding";
 import { RunsView } from "./components/RunsView";
 import { Thread } from "./components/Thread";
-import type { Status } from "./types";
+import type { Onboarding as OnboardingData, Status } from "./types";
 import { useLiveSession } from "./useLiveSession";
 
-type View = "thread" | "runs";
+type View = "thread" | "runs" | "setup";
+
+const VIEW_NAMES: Record<View, string> = { thread: "Thread", runs: "Runs", setup: "Setup" };
 
 export function App() {
   const [view, setView] = useState<View>("thread");
@@ -19,6 +22,14 @@ export function App() {
     getJson<Status>("/api/status").then(setStatus, () => setStatus(null));
   }, []);
   useEffect(refreshStatus, [refreshStatus]);
+
+  const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
+  useEffect(() => {
+    getJson<OnboardingData>("/api/onboarding").then((data) => {
+      setOnboarding(data);
+      if (data.needed) setView("setup");
+    }, () => setOnboarding(null));
+  }, []);
 
   const live = useLiveSession(refreshStatus);
   const { state } = live;
@@ -66,14 +77,15 @@ export function App() {
           </div>
           <div className="nav-group">
             <span className="nav-label">Workspace</span>
-            {(["thread", "runs"] as const).map((name) => (
+            {(["thread", "runs", "setup"] as const).map((name) => (
               <button
                 key={name}
                 type="button"
                 className={`nav ${view === name ? "active" : ""}`}
                 onClick={() => setView(name)}
               >
-                {name === "thread" ? "Thread" : "Runs"}
+                {VIEW_NAMES[name]}
+                {name === "setup" && onboarding?.needed && <span className="nav-dot" aria-label="needed" />}
               </button>
             ))}
           </div>
@@ -105,7 +117,7 @@ export function App() {
             <div className="crumbs">
               <span className="muted">M3allema</span>
               <span className="sep">/</span>
-              <span>{view === "runs" ? "Runs" : "Thread"}</span>
+              <span>{VIEW_NAMES[view]}</span>
               <span className={`status ${statusClass}`}>
                 <span className="dot" />
                 {statusLabel}
@@ -120,7 +132,10 @@ export function App() {
           </header>
 
           <div className="panes">
-            {view === "runs" ? (
+            {view === "setup" && onboarding ? (
+              // A fresh page load opens a new session, so the agent picks up the new files.
+              <Onboarding questions={onboarding.questions} onDone={() => window.location.reload()} />
+            ) : view === "runs" ? (
               <RunsView />
             ) : (
               <main className="thread">

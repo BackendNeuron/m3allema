@@ -147,3 +147,23 @@ button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
   .nav-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .intro { display: none; } }
+
+/* Onboarding interview */
+.nav-dot { display: inline-block; width: 6px; height: 6px; margin-left: 8px; border-radius: 50%; background: var(--garnet-text); vertical-align: middle; }
+.onboarding { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 32px clamp(16px, 4vw, 48px); max-width: 720px; }
+.onboarding-head { display: flex; flex-direction: column; gap: 10px; }
+.onboarding-head h2 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.03em; }
+.eyebrow { font: 11px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+.progress { display: flex; gap: 6px; }
+.progress span { flex: 1 1 0; height: 3px; border-radius: 3px; background: var(--line); transition: background 0.4s ease; }
+.progress span.on { background: var(--gold); }
+.questions { display: flex; flex-direction: column; gap: 22px; }
+.question { display: flex; flex-direction: column; gap: 6px; }
+.question label { font-size: 14px; color: var(--text); }
+.question input, .question textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
+.question input:focus, .question textarea:focus { outline: none; border-color: var(--gold); }
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+.option { min-height: 34px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--text-2); font-size: 13px; text-transform: capitalize; }
+.option:hover { color: var(--text); background: var(--surface-2); }
+.option.on { border-color: var(--gold); color: var(--gold); background: #1a160e; }
+.onboarding-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; }
