@@ -13,6 +13,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from m3allema.tools.servers._annotations import LOCAL_WRITE, READ_ONLY
+from m3allema.tools.servers._tool import tool
 from m3allema.workspace.skills import Skill, SkillLibrary
 
 
@@ -24,18 +25,18 @@ def create_skills_server(workspace_root: Path) -> MCPServer:
         instructions="Follow the business's written procedures for recurring jobs.",
     )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def list_skills() -> str:
         """List the available skills and when to use each."""
         return library.index() or "No skills yet."
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def read_skill(name: str) -> str:
         """Read a skill's full steps. Do this before a task that matches its description."""
         skill = library.get(name)
         return f"# {skill.name}\n{skill.description}\n\n{skill.steps}"
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def save_skill(name: str, description: str, steps: str) -> str:
         """Save a new skill after a recurring job went well, so it is done the same way next time.
 

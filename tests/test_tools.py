@@ -3,10 +3,11 @@ from pathlib import Path
 import pytest
 
 from m3allema.domain.tools import Risk
+from m3allema.text import html_to_text
 from m3allema.tools.hub import ToolHub
 from m3allema.tools.servers import ToolContext
 from m3allema.tools.servers.files import PathOutsideRootError, resolve_inside
-from m3allema.tools.servers.web import ensure_public_url, html_to_text
+from m3allema.tools.servers.web import ensure_public_url
 
 
 async def test_files_tools_round_trip_and_risk_levels(tmp_path: Path) -> None:
@@ -61,3 +62,14 @@ def test_web_rejects_local_and_non_http_urls(url: str) -> None:
 def test_html_to_text_drops_scripts() -> None:
     html = "<html><script>evil()</script><h1>Title</h1><p>Body</p></html>"
     assert html_to_text(html) == "Title\nBody"
+
+
+async def test_expected_failures_reach_the_model_with_their_reason(tmp_path: Path) -> None:
+    (tmp_path / "notes.txt").write_text("hi", encoding="utf-8")
+    async with ToolHub.from_config(["docs", "files"], {}, ToolContext(tmp_path)) as hub:
+        wrong_type = await hub.call("docs__read_document", {"path": "notes.txt"})
+        escape = await hub.call("files__read_file", {"path": "../secret.txt"})
+    assert wrong_type.is_error
+    assert "only .docx and .pdf" in wrong_type.content
+    assert escape.is_error
+    assert "outside the workspace files folder" in escape.content

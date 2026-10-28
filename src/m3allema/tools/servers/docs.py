@@ -16,6 +16,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 from m3allema.tools.servers._annotations import LOCAL_WRITE, READ_ONLY
+from m3allema.tools.servers._tool import tool
 from m3allema.tools.servers.files import resolve_inside
 
 MAX_PDF_PAGES = 30
@@ -83,7 +84,7 @@ def create_docs_server(root: Path) -> MCPServer:
         "docs", instructions="Read Word (.docx) and PDF files; write Word documents."
     )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def read_document(path: str, first_page: int = 1, max_pages: int = MAX_PDF_PAGES) -> str:
         """Extract the text of a .docx or .pdf file. PDFs are read a range of pages at a time."""
         target = resolve_inside(root, path)
@@ -96,7 +97,7 @@ def create_docs_server(root: Path) -> MCPServer:
             return read_pdf_text(target, first_page, max_pages)
         raise ValueError("only .docx and .pdf files are supported")
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def write_docx(path: str, title: str, body: str, overwrite: bool = False) -> str:
         """Create a Word document. The body supports '# ' headings, '- ' bullets and paragraphs.
 

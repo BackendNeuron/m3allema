@@ -9,6 +9,7 @@ from mcp.server.mcpserver import MCPServer
 
 from m3allema.integrations.google.gateways import CalendarEvent, CalendarGateway
 from m3allema.tools.servers._annotations import OUTWARD, READ_ONLY
+from m3allema.tools.servers._tool import tool
 
 MAX_EVENTS = 100
 
@@ -30,7 +31,7 @@ def create_calendar_server(gateway: CalendarGateway) -> MCPServer:
         "for example 2026-11-02T10:00:00+02:00.",
     )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     async def list_events(start: str | None = None, end: str | None = None, limit: int = 25) -> str:
         """List events between two RFC 3339 times. Defaults to the next 7 days."""
         now = datetime.now(UTC)
@@ -41,7 +42,7 @@ def create_calendar_server(gateway: CalendarGateway) -> MCPServer:
         )
         return "\n".join(_format(e) for e in events) or "No events in that period."
 
-    @server.tool(annotations=OUTWARD)
+    @tool(server, annotations=OUTWARD)
     async def create_event(
         summary: str,
         start: str,

@@ -21,6 +21,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from m3allema.tools.servers._annotations import LOCAL_DESTRUCTIVE
+from m3allema.tools.servers._tool import tool
 
 DEFAULT_IMAGE = "python:3.11-slim"
 TIMEOUT_S = 60.0
@@ -106,7 +107,7 @@ def create_shell_server(root: Path, settings: SandboxSettings | None = None) -> 
         "network. The working directory /workspace is the business's files folder.",
     )
 
-    @server.tool(annotations=LOCAL_DESTRUCTIVE)
+    @tool(server, annotations=LOCAL_DESTRUCTIVE)
     async def run_command(command: str) -> str:
         """Run a shell command in a sandbox with no network; /workspace is the files folder.
 

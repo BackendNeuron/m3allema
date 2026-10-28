@@ -18,6 +18,7 @@ from mcp.server.mcpserver import MCPServer
 from openpyxl import Workbook, load_workbook
 
 from m3allema.tools.servers._annotations import LOCAL_WRITE, READ_ONLY
+from m3allema.tools.servers._tool import tool
 from m3allema.tools.servers.files import resolve_inside
 
 MAX_ROWS = 500
@@ -46,7 +47,7 @@ def create_excel_server(root: Path) -> MCPServer:
         "excel", instructions="Read and write .xlsx workbooks in the business's files folder."
     )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def list_sheets(path: str) -> str:
         """List the sheets of a workbook with their sizes."""
         target = resolve_inside(root, path)
@@ -60,7 +61,7 @@ def create_excel_server(root: Path) -> MCPServer:
         finally:
             workbook.close()
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def read_sheet(path: str, sheet: str | None = None, start_row: int = 1) -> str:
         """Read a sheet as CSV (computed values, not formulas), up to 500 rows per call."""
         target = resolve_inside(root, path)
@@ -82,7 +83,7 @@ def create_excel_server(root: Path) -> MCPServer:
         finally:
             workbook.close()
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def write_sheet(
         path: str, rows: list[list[Cell]], sheet: str = "Sheet1", overwrite: bool = False
     ) -> str:
@@ -104,7 +105,7 @@ def create_excel_server(root: Path) -> MCPServer:
         workbook.save(target)
         return f"Wrote {len(rows)} rows to {path} ({sheet})"
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def append_rows(path: str, rows: list[list[Cell]], sheet: str | None = None) -> str:
         """Add rows to the end of a sheet in an existing workbook."""
         target = resolve_inside(root, path)

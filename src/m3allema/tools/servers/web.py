@@ -17,6 +17,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
 from m3allema.text import html_to_text
+from m3allema.tools.servers._tool import tool
 
 MAX_PAGE_CHARS = 30_000
 TIMEOUT_S = 20.0
@@ -50,7 +51,7 @@ def create_web_server() -> MCPServer:
     """Build the web server."""
     server = MCPServer("web", instructions="Fetch public web pages as plain text.")
 
-    @server.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+    @tool(server, annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
     async def fetch_url(url: str) -> str:
         """Download a public web page and return its readable text."""
         await asyncio.to_thread(ensure_public_url, url)

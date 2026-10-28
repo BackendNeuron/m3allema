@@ -15,6 +15,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from m3allema.tools.servers._annotations import LOCAL_DESTRUCTIVE, LOCAL_WRITE
+from m3allema.tools.servers._tool import tool
 from m3allema.workspace.memory import MemoryBook
 
 
@@ -26,7 +27,7 @@ def create_memory_server(workspace_root: Path) -> MCPServer:
         instructions="Keep durable facts about the business and the owner between conversations.",
     )
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def remember(fact: str) -> str:
         """Save one durable fact for future conversations, e.g. a client's payment terms.
 
@@ -36,7 +37,7 @@ def create_memory_server(workspace_root: Path) -> MCPServer:
         saved = book.remember(fact)
         return f"Remembered: {saved.text}"
 
-    @server.tool(annotations=LOCAL_DESTRUCTIVE)
+    @tool(server, annotations=LOCAL_DESTRUCTIVE)
     def forget(text: str) -> str:
         """Forget every remembered fact containing this text."""
         removed = book.forget(text)

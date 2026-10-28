@@ -15,6 +15,7 @@ from mcp.server.mcpserver import MCPServer
 
 from m3allema.integrations.google.gateways import GmailGateway, OutgoingEmail
 from m3allema.tools.servers._annotations import LOCAL_WRITE, OUTWARD, READ_ONLY
+from m3allema.tools.servers._tool import tool
 
 MAX_RESULTS = 50
 MAX_BODY_CHARS = 15_000
@@ -28,7 +29,7 @@ def create_gmail_server(gateway: GmailGateway) -> MCPServer:
         "is:unread, newer_than:7d, has:attachment). Prefer drafts; sending needs approval.",
     )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     async def search_emails(query: str, limit: int = 20) -> str:
         """Search emails with Gmail syntax, newest first. Returns ids to use with read_email."""
         results = await asyncio.to_thread(gateway.search, query, max(1, min(limit, MAX_RESULTS)))
@@ -38,7 +39,7 @@ def create_gmail_server(gateway: GmailGateway) -> MCPServer:
             f"[{e.id}] {e.date} | {e.sender} | {e.subject} | {e.snippet}" for e in results
         )
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     async def read_email(email_id: str) -> str:
         """Read one email in full."""
         email = await asyncio.to_thread(gateway.get, email_id)
@@ -50,7 +51,7 @@ def create_gmail_server(gateway: GmailGateway) -> MCPServer:
             f"Subject: {email.subject}\nThread: {email.thread_id}\n\n{body}"
         )
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     async def create_draft(
         to: str, subject: str, body: str, cc: str = "", reply_to_email_id: str | None = None
     ) -> str:
@@ -63,7 +64,7 @@ def create_gmail_server(gateway: GmailGateway) -> MCPServer:
         )
         return f"Draft saved (id {draft_id}) to {to}: {subject}"
 
-    @server.tool(annotations=OUTWARD)
+    @tool(server, annotations=OUTWARD)
     async def send_email(
         to: str, subject: str, body: str, cc: str = "", reply_to_email_id: str | None = None
     ) -> str:
@@ -73,7 +74,7 @@ def create_gmail_server(gateway: GmailGateway) -> MCPServer:
         )
         return f"Sent (id {message_id}) to {to}: {subject}"
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     async def archive_email(email_id: str) -> str:
         """Archive an email: it leaves the inbox but stays searchable in All Mail."""
         await asyncio.to_thread(gateway.archive, email_id)

@@ -16,6 +16,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from m3allema.tools.servers._annotations import LOCAL_WRITE, READ_ONLY
+from m3allema.tools.servers._tool import tool
 
 MAX_READ_BYTES = 1_000_000
 MAX_READ_LINES = 400
@@ -54,7 +55,7 @@ def create_files_server(root: Path) -> MCPServer:
     def display(path: Path) -> str:
         return path.relative_to(root).as_posix() or "."
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def list_files(path: str = ".") -> str:
         """List files and folders under a folder, recursively. Folders end with '/'."""
         base = resolve_inside(root, path)
@@ -66,7 +67,7 @@ def create_files_server(root: Path) -> MCPServer:
             lines.append(f"... and {len(entries) - MAX_LIST_ENTRIES} more")
         return "\n".join(lines) or "(empty folder)"
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def read_file(path: str, start_line: int = 1, max_lines: int = MAX_READ_LINES) -> str:
         """Read a UTF-8 text file (CSV, Markdown, TXT, JSON...), a page of lines at a time.
 
@@ -89,7 +90,7 @@ def create_files_server(root: Path) -> MCPServer:
             text += f"\n\n[lines {start}-{end} of {len(lines)}; continue with start_line={end + 1}]"
         return text
 
-    @server.tool(annotations=LOCAL_WRITE)
+    @tool(server, annotations=LOCAL_WRITE)
     def write_file(path: str, content: str, overwrite: bool = False) -> str:
         """Create a text file. Set overwrite=true to replace an existing file."""
         target = resolve_inside(root, path)
@@ -99,7 +100,7 @@ def create_files_server(root: Path) -> MCPServer:
         target.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} characters to {display(target)}"
 
-    @server.tool(annotations=READ_ONLY)
+    @tool(server, annotations=READ_ONLY)
     def search_files(query: str, path: str = ".") -> str:
         """Find lines containing a phrase (case-insensitive) in text files under a folder."""
         base = resolve_inside(root, path)
