@@ -227,9 +227,10 @@ class Agent:
                     yield self._emit(run_id, ToolCallStarted(call))
                     spec = specs.get(call.name)
                     started = time.perf_counter()
-                    result = await self._execute(call, spec)
+                    result, from_tool = await self._execute(call, spec)
                     elapsed = int((time.perf_counter() - started) * 1000)
-                    results.append(result)
+                    # The model sees tool content marked as data; events keep it plain.
+                    results.append(as_untrusted(call.name, result) if from_tool else result)
                     risk = spec.risk.value if spec else ""
                     yield self._emit(run_id, ToolCallFinished(call, result, elapsed, risk))
                 self._append(ToolResultMessage(tuple(results)))
@@ -328,23 +329,29 @@ class Agent:
                 if is_last or produced_output or not exc.retryable:
                     raise
 
-    async def _execute(self, call: ToolCall, spec: ToolSpec | None) -> ToolResult:
-        """Validate, gate and run one tool call. Failures become error results for the model."""
+    async def _execute(self, call: ToolCall, spec: ToolSpec | None) -> tuple[ToolResult, bool]:
+        """Validate, gate and run one tool call. Failures become error results for the model.
+
+        Returns:
+            The result, and whether its content came from the tool (and so is
+            untrusted) rather than from M3allema itself.
+
+        """
         if spec is None:
-            return ToolResult(call.id, f"Unknown tool {call.name!r}.", is_error=True)
+            return ToolResult(call.id, f"Unknown tool {call.name!r}.", is_error=True), False
         if INVALID_ARGUMENTS_KEY in call.arguments:
-            return ToolResult(
-                call.id, "The arguments were not valid JSON. Send them again.", is_error=True
-            )
+            invalid = "The arguments were not valid JSON. Send them again."
+            return ToolResult(call.id, invalid, is_error=True), False
 
         decision = await self._gate.check(call, spec)
         if not decision.allowed:
-            return ToolResult(
+            refused = ToolResult(
                 call.id,
                 f"Not run: {decision.reason}. Do not retry this call; "
                 "tell the owner what you wanted to do and ask how to proceed.",
                 is_error=True,
             )
+            return refused, False
 
         try:
             output = await asyncio.wait_for(
@@ -359,7 +366,7 @@ class Agent:
             content = self._archive.fit(call.id, call.name, output.content)
         else:
             content = _truncate(output.content)
-        return ToolResult(call.id, content, is_error=output.is_error)
+        return ToolResult(call.id, content, is_error=output.is_error), True
 
     def _budget_exceeded(self, run_cost: float) -> str | None:
         """Explain which budget is used up, or return ``None``."""
@@ -380,6 +387,19 @@ class Agent:
         if self._sink is not None:
             self._sink.record(run_id, event)
         return event
+
+
+def as_untrusted(tool: str, result: ToolResult) -> ToolResult:
+    """Wrap tool content in ``<tool_output>`` so the model can tell data from the owner.
+
+    Emails, files and web pages can contain text written to manipulate the
+    model. The prompt tells it that everything inside these tags is data; a
+    closing tag inside the content is neutralised so the content cannot end the
+    block early and pose as instructions.
+    """
+    body = result.content.replace("</tool_output", "<\\/tool_output")
+    wrapped = f'<tool_output tool="{tool}">\n{body}\n</tool_output>'
+    return dataclasses.replace(result, content=wrapped)
 
 
 def _not_run(calls: Sequence[ToolCall], reason: str) -> ToolResultMessage:
