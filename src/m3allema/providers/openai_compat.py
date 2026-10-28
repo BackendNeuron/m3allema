@@ -22,7 +22,12 @@ from m3allema.domain.messages import (
     UserMessage,
 )
 from m3allema.domain.tools import ToolSpec
-from m3allema.providers.base import INVALID_ARGUMENTS_KEY, CompletionRequest, ProviderError
+from m3allema.providers.base import (
+    INVALID_ARGUMENTS_KEY,
+    CompletionRequest,
+    InvalidToolCallError,
+    ProviderError,
+)
 
 PROVIDER_NAME = "openai_compat"
 _LOCAL_PLACEHOLDER_KEY = "not-needed"
@@ -91,12 +96,28 @@ class OpenAICompatProvider:
                     yield TextDelta(text)
         except _RETRYABLE_ERRORS as exc:
             raise ProviderError(f"provider temporarily unavailable: {exc}", retryable=True) from exc
-        except openai.APIStatusError as exc:
+        except openai.APIError as exc:
+            # Includes errors sent in the middle of a stream, which have no status code.
+            if _is_tool_call_failure(exc):
+                raise InvalidToolCallError(str(exc)) from exc
+            status = getattr(exc, "status_code", None)
             raise ProviderError(
-                f"provider rejected the request ({exc.status_code}): {exc}"
+                f"provider rejected the request ({status or 'stream error'}): {exc}"
             ) from exc
 
         yield accumulator.result()
+
+
+_TOOL_FAILURE_MARKERS = ("tool_use_failed", "tool call", "tool_call")
+
+
+def _is_tool_call_failure(exc: openai.APIError) -> bool:
+    """Whether the server refused the model's tool call rather than our request."""
+    body = exc.body if isinstance(exc.body, dict) else {}
+    error = body.get("error", body)
+    code = str(error.get("code", "")) if isinstance(error, dict) else ""
+    text = f"{code} {exc}".lower()
+    return any(marker in text for marker in _TOOL_FAILURE_MARKERS)
 
 
 def to_openai_tools(tools: Sequence[ToolSpec]) -> list[dict[str, Any]]:

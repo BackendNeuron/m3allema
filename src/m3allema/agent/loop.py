@@ -35,7 +35,12 @@ from m3allema.domain.messages import (
     UserMessage,
 )
 from m3allema.domain.tools import ToolSpec
-from m3allema.providers.base import INVALID_ARGUMENTS_KEY, CompletionRequest, ProviderError
+from m3allema.providers.base import (
+    INVALID_ARGUMENTS_KEY,
+    CompletionRequest,
+    InvalidToolCallError,
+    ProviderError,
+)
 from m3allema.providers.factory import ResolvedModel
 from m3allema.providers.pricing import PriceBook
 
@@ -53,6 +58,16 @@ EMPTY_TURN_NUDGE = (
     "otherwise give the owner your answer."
 )
 """Sent once per run when the model ends a turn with no text and no tool call."""
+
+INVALID_TOOL_CALL_NUDGE = (
+    "Your last tool call was rejected: {error}. Call only the tools you were given, with "
+    "their exact names and valid JSON arguments."
+)
+MAX_INVALID_TOOL_CALLS = 2
+"""Rejected tool calls a run recovers from before it fails."""
+
+RETRY_DELAY_S = 3.0
+"""Wait before retrying the main model when no fallback model is configured."""
 
 
 class Agent:
@@ -141,6 +156,7 @@ class Agent:
         answer = ""
         status = "max_steps"
         nudged = False
+        invalid_calls = 0
 
         yield self._emit(
             run_id,
@@ -160,10 +176,18 @@ class Agent:
                     break
                 steps += 1
                 turn: TurnCompleted | None = None
-                async for event in self._stream_turn(tuple(specs.values())):
-                    if isinstance(event, TurnCompleted):
-                        turn = event
-                    yield self._emit(run_id, event)
+                try:
+                    async for event in self._stream_turn(tuple(specs.values())):
+                        if isinstance(event, TurnCompleted):
+                            turn = event
+                        yield self._emit(run_id, event)
+                except InvalidToolCallError as exc:
+                    if invalid_calls >= MAX_INVALID_TOOL_CALLS:
+                        raise
+                    # The server refused the model's tool call; explain and let it retry.
+                    invalid_calls += 1
+                    self._append(UserMessage(INVALID_TOOL_CALL_NUDGE.format(error=exc)))
+                    continue
                 if turn is None:  # pragma: no cover - providers always complete a turn
                     raise ProviderError("the provider ended the stream without a turn")
 
@@ -274,8 +298,12 @@ class Agent:
         sees two half-answers stitched together. The completed turn is tagged
         with the model that produced it and its cost.
         """
-        candidates = [self._model, *([self._fallback] if self._fallback else [])]
+        # A transient failure moves to the fallback model, or retries the main one
+        # once after a short wait when there is no fallback.
+        candidates = [self._model, self._fallback or self._model]
         for index, resolved in enumerate(candidates):
+            if index > 0 and resolved is self._model:
+                await asyncio.sleep(RETRY_DELAY_S)
             request = CompletionRequest(
                 model=resolved.model,
                 system=self._system_prompt,

@@ -52,6 +52,15 @@ class ProviderError(Exception):
         self.retryable = retryable
 
 
+class InvalidToolCallError(ProviderError):
+    """The server rejected the model's own tool call (bad JSON, a tool that does not exist).
+
+    Some servers (Groq, for example) validate tool calls and fail the request
+    instead of returning the bad call. The agent tells the model what went wrong
+    and lets it try again, rather than ending the run.
+    """
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     """Streams one model turn in M3allema's neutral format."""

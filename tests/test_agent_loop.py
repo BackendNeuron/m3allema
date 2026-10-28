@@ -1,11 +1,14 @@
+import pytest
+
 from fakes import READ_TOOL, SEND_TOOL, FakeTools, ScriptedProvider, turn
+from m3allema.agent import loop as loop_module
 from m3allema.agent.loop import Agent
 from m3allema.agent.permissions import PolicyGate
 from m3allema.config.models import AgentSettings
 from m3allema.domain.events import AgentEvent, RunFinished, ToolCallFinished
 from m3allema.domain.messages import StopReason, ToolCall, ToolResultMessage, UserMessage
 from m3allema.domain.tools import ToolSpec
-from m3allema.providers.base import INVALID_ARGUMENTS_KEY, ProviderError
+from m3allema.providers.base import INVALID_ARGUMENTS_KEY, InvalidToolCallError, ProviderError
 from m3allema.providers.factory import ResolvedModel
 
 
@@ -158,6 +161,39 @@ async def test_non_retryable_error_fails_the_run_cleanly() -> None:
     result = finished(await collect(make_agent(main, FakeTools([]), fallback=backup), "hi"))
     assert result.status == "failed"
     assert backup.requests == []
+
+
+async def test_without_fallback_a_transient_error_is_retried_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(loop_module, "RETRY_DELAY_S", 0)
+    main = ScriptedProvider(ProviderError("timed out", retryable=True), turn("Recovered."))
+    result = finished(await collect(make_agent(main, FakeTools([])), "hi"))
+    assert (result.status, result.answer) == ("completed", "Recovered.")
+
+    twice = ScriptedProvider(
+        ProviderError("timed out", retryable=True), ProviderError("timed out", retryable=True)
+    )
+    failed = finished(await collect(make_agent(twice, FakeTools([])), "hi"))
+    assert failed.status == "failed"
+    assert "timed out" in failed.answer
+
+
+async def test_a_rejected_tool_call_is_explained_and_retried() -> None:
+    provider = ScriptedProvider(
+        InvalidToolCallError("attempted to call tool 'files__write_docx'"), turn("Done.")
+    )
+    result = finished(await collect(make_agent(provider, FakeTools([])), "write it"))
+    assert (result.status, result.answer) == ("completed", "Done.")
+    feedback = provider.requests[1].messages[-1]
+    assert isinstance(feedback, UserMessage)
+    assert "files__write_docx" in feedback.text
+
+
+async def test_repeated_rejected_tool_calls_end_the_run_cleanly() -> None:
+    errors = [InvalidToolCallError("bad JSON") for _ in range(3)]
+    result = finished(await collect(make_agent(ScriptedProvider(*errors), FakeTools([])), "x"))
+    assert result.status == "failed"
 
 
 async def test_every_event_reaches_the_sink_and_history_persists() -> None:
