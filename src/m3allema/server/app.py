@@ -225,7 +225,9 @@ class LiveSession:
     async def _start(self, work: Any) -> None:
         if self._task is not None and not self._task.done():
             work.close()
-            await self.send({"type": "error", "message": "M3allema is still working on the last task."})
+            await self.send(
+                {"type": "error", "message": "M3allema is still working on the last task."}
+            )
             return
         self._task = asyncio.create_task(work)
 

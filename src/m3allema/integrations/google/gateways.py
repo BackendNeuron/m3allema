@@ -131,8 +131,11 @@ class SheetsGateway(Protocol):
 
 
 def _build(api: str, version: str, credentials: Credentials) -> Any:
-    """Create a Google API client. Imported lazily: the library is heavy and only
-    needed once a Google tool is actually enabled."""
+    """Create a Google API client.
+
+    Imported lazily: the library is heavy and only needed once a Google tool is
+    actually enabled.
+    """
     from googleapiclient.discovery import build
 
     return build(api, version, credentials=credentials, cache_discovery=False)
