@@ -36,7 +36,7 @@ The first public release: the open-source core of M3allema.
 
 ### Evals and setup
 
-- Public eval suite (`m3allema eval`, 15 cases) with pass rate per category: 14/15 with
+- Public eval suite (`m3allema eval`, 15 cases) with pass rate per category: 15/15 correct answers (14/15 scored before a check fix) with
   `openai/gpt-oss-120b` on Groq. Runs that hit a provider quota stop and are marked incomplete.
 - Prompt-injection defence: tool output is marked as data, and the agent refuses and reports
   instructions planted in files, emails or web pages.

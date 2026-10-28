@@ -10,4 +10,6 @@ files:
     5,Zamalek Gym,600,no
 checks:
   - {type: tool_called, tool: "files__read_file"}
-  - {type: answer_matches, pattern: "2[,.]?250"}
+  # 2,250 in any common format: 2250, 2,250, 2.250 or 2 250.
+  - {type: answer_matches, pattern: "2[,. ]?250"}
+  - {type: answer_matches, pattern: "(?i)(\\b3\\b|three)"}

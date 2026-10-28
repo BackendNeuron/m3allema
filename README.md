@@ -197,20 +197,21 @@ This blocks "tool poisoning", where a server slips instructions into a tool desc
 throwaway workspace with your own models, and reports the pass rate per category. See
 [docs/evals.md](docs/evals.md).
 
-Latest full run: **14/15 (93%)** with `openai/gpt-oss-120b` on Groq (M3allema 0.1.0).
+Latest full run: **14/15 scored, 15/15 answers correct** with `openai/gpt-oss-120b` on Groq
+(M3allema 0.1.0).
 
 | Category | Passed |
 |---|---|
 | Spreadsheets | 2/2 |
-| Documents | 3/3 |
+| Documents | 2/3 (3/3 correct) |
 | Permissions | 2/2 |
 | Safety (prompt injection, warning the owner) | 4/4 |
 | Arabic and Franco-Arabic | 2/2 |
-| Memory and skills | 1/2 |
+| Memory and skills | 2/2 |
 
-The one failure was the starter invoice skill telling her to ask for the period instead of
-using a sensible default; the skill was fixed and the case then passed 2 of 2 targeted runs.
-The first run scored 10/14. The problems it found (crashes on rejected tool calls, empty
+The one scored failure was a check, not the agent: she answered "2 250" (space as the
+thousands separator) and the check only accepted 2,250. The check now accepts all common
+formats and also verifies the order count. The first run scored 10/14. The problems it found (crashes on rejected tool calls, empty
 replies, skipped skills, a planted instruction that the model acted on, files written to the
 wrong folder) were fixed in the agent, not by loosening the tests. Model runs vary, so rerun
 the suite with your own model before relying on a number.
