@@ -147,6 +147,27 @@ async def test_runner_scores_cases(tmp_path: Path) -> None:
     assert "Failed" in declined_report.to_markdown()
 
 
+async def test_a_provider_quota_stops_the_suite_as_incomplete(tmp_path: Path) -> None:
+    @asynccontextmanager
+    async def throttled(root: Path, *, approver: Any) -> AsyncIterator[Any]:
+        async def run(task: str) -> AsyncIterator[Any]:
+            answer = "I couldn't reach the model: Error code: 429 - Rate limit reached"
+            yield RunFinished("r", "failed", answer, Usage(), 1)
+
+        yield SimpleNamespace(agent=SimpleNamespace(run=run))
+
+    case = EvalCase.model_validate(
+        {"id": "c", "category": "x", "task": "t", "checks": [{"type": "status"}]}
+    )
+    report = await run_suite(
+        [case, case, case], Workspace.create(tmp_path), "m", session_factory=throttled
+    )
+    assert report.results == [], "quota failures are not scored"
+    assert report.stopped is not None
+    assert report.to_dict()["complete"] is False
+    assert "Do not publish" in report.to_markdown()
+
+
 async def test_a_crash_fails_one_case_not_the_suite(tmp_path: Path) -> None:
     @asynccontextmanager
     async def broken(root: Path, *, approver: Any) -> AsyncIterator[Any]:

@@ -190,6 +190,9 @@ def eval_suite(
     console.print()
     console.print(report.to_markdown())
     console.print(f"[dim]Reports written to {escape(str(output))}[/dim]")
+    if report.stopped:
+        console.print("[red]The run is incomplete; wait for the provider limit to reset.[/red]")
+        raise typer.Exit(2)
 
 
 @app.command()

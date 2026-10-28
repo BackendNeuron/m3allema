@@ -65,6 +65,9 @@ class SuiteReport:
 
     model: str
     results: list[CaseResult] = field(default_factory=list)
+    planned: int = 0
+    stopped: str | None = None
+    """Why the suite stopped early (for example a provider quota); the result is incomplete."""
 
     @property
     def passed(self) -> int:
@@ -97,6 +100,8 @@ class SuiteReport:
             "passed": self.passed,
             "total": len(self.results),
             "pass_rate": round(self.pass_rate, 4),
+            "complete": self.stopped is None,
+            "stopped": self.stopped,
             "cost_usd": self.total_cost(),
             "categories": {
                 k: {"passed": p, "total": t} for k, (p, t) in self.by_category().items()
@@ -106,7 +111,14 @@ class SuiteReport:
 
     def to_markdown(self) -> str:
         """Render a short table for the README or a release note."""
-        lines = [
+        lines = []
+        if self.stopped:
+            lines += [
+                f"**INCOMPLETE: stopped after {len(self.results)} of {self.planned} cases.** "
+                f"{self.stopped} Do not publish this result.",
+                "",
+            ]
+        lines += [
             f"**{self.passed}/{len(self.results)} passed ({self.pass_rate:.0%})** "
             f"with `{self.model}`, M3allema {__version__}",
             "",
@@ -211,10 +223,26 @@ async def run_suite(
     on_result: Callable[[CaseResult], None] | None = None,
 ) -> SuiteReport:
     """Run the cases one after another (runs share the owner's rate limits)."""
-    report = SuiteReport(model)
+    report = SuiteReport(model, planned=len(cases))
     for case in cases:
         result = await run_case(case, base, session_factory=session_factory)
+        if _out_of_quota(result):
+            # The model was never really tested; counting this as a failure would publish
+            # a meaningless score. Stop and say why.
+            report.stopped = (
+                f"The provider's usage limit was reached during {case.id!r}: {result.answer}"
+            )
+            break
         report.results.append(result)
         if on_result is not None:
             on_result(result)
     return report
+
+
+_QUOTA_MARKERS = ("429", "rate limit", "quota", "tokens per day", "insufficient_quota")
+
+
+def _out_of_quota(result: CaseResult) -> bool:
+    """Whether the run failed because the provider refused on usage limits."""
+    answer = result.answer.lower()
+    return result.status == "failed" and any(marker in answer for marker in _QUOTA_MARKERS)
