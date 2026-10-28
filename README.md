@@ -21,10 +21,10 @@ built for business owners, and **trust is the product**:
 - **Built on MCP.** Her tools are MCP servers, and any MCP server plugs in.
 - **Speaks your language.** English, Arabic, Egyptian and Gulf dialect, and Franco-Arabic.
 
-> **Status: early development (Phase 1, milestone 3).** The agent loop, providers, file,
+> **Status: early development (Phase 1, milestone 4).** The agent loop, providers, file,
 > Excel, Word/PDF, web, shell, Gmail, Calendar and Sheets tools, `policy.yaml`, budgets,
-> receipts and resumable conversations work from the CLI. The web dashboard and more are on
-> the [roadmap](#roadmap).
+> receipts and resumable conversations work from the CLI and the local web dashboard. The
+> onboarding interview and more are on the [roadmap](#roadmap).
 
 ## Quick start
 
@@ -88,6 +88,7 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | `m3allema chat` | Talk to M3allema |
 | `m3allema chat --resume` | Continue the last conversation (`-c ID` for a specific one) |
 | `m3allema run "TASK"` | Run one task and exit |
+| `m3allema serve` | Open the web dashboard on `127.0.0.1` |
 | `m3allema conversations` | Saved conversations you can resume |
 | `m3allema runs list` | Recent runs with status, tokens, cost and today's spend |
 | `m3allema runs show ID` | Replay every step of a run |
@@ -97,6 +98,15 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 Inside `chat`: `/compact` summarises the conversation and continues from the summary (the
 original stays saved), `/new` starts fresh, `/help` lists commands. `mek` is a short alias
 for `m3allema`.
+
+### The dashboard
+
+`m3allema serve` starts a local dashboard and opens it in your browser: a live timeline of
+each run, approve and decline buttons for risky actions, receipts, cost per run and the run
+history. It listens only on `127.0.0.1`, and the link it prints carries a one-time token that
+every request must present; connections from other websites are refused. The interface is
+built from `web/` (React, TypeScript, GSAP, Vite) and ships inside the Python package, so
+users do not need Node.js.
 
 ## Built-in tools
 
@@ -131,7 +141,12 @@ uv sync
 uv run pytest            # tests
 uv run ruff check .      # lint
 uv run mypy              # strict type checking
+
+cd web; npm ci; npm run build   # rebuild the dashboard into src/m3allema/server/static
 ```
+
+During dashboard work, run `m3allema serve` and `npm run dev` in `web/` (Vite proxies `/api`
+to port 8765). Commit the rebuilt static files; CI fails if they are out of date.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

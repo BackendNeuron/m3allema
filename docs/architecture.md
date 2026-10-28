@@ -15,6 +15,8 @@ src/m3allema/
   storage/       EventStore: runs and the append-only event log   (SQLAlchemy)
   runtime.py     composition root: builds a ready Session
   cli/           Typer commands + Rich rendering
+  server/        FastAPI dashboard: REST + one WebSocket per tab, WebApprover
+web/             React + Vite source of the dashboard (built into server/static)
 ```
 
 ## Request flow
@@ -29,6 +31,17 @@ src/m3allema/
 5. Steps 2–4 repeat until the model answers without tools, refuses, runs out of tokens, or hits
    `max_steps`. The run always ends with exactly one `RunFinished` event.
 6. Every event goes to the `EventSink` (the `EventStore`) as it happens.
+
+## The dashboard server
+
+`m3allema serve` runs the FastAPI app from `server/app.py`. Read-only endpoints (`/api/status`,
+`/api/runs`, `/api/conversations`) open the stores directly. Each browser tab opens one
+WebSocket (`/api/ws`), and `LiveSession` builds a normal `Session` for it through the same
+`open_session` composition root as the CLI, so both interfaces share one code path.
+Approvals use `WebApprover`, an `Approver` strategy that sends an `approval_request` and waits
+for the browser's answer; unanswered requests (closed tab, 15 minute timeout) are declined.
+Every request needs the token printed at start-up, and WebSocket connections must come from
+this local server's own origin.
 
 ## Design decisions
 

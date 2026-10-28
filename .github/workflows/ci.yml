@@ -28,3 +28,20 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy
       - run: uv run pytest
+
+  dashboard:
+    name: Dashboard build is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - name: Committed static files match the build
+        run: test -z "$(git status --porcelain -- src/m3allema/server/static)" || (git status -- src/m3allema/server/static; exit 1)
