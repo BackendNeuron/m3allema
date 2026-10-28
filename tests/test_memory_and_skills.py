@@ -79,7 +79,7 @@ def test_prompt_lists_skills() -> None:
     assert "- invoice-summary: Summarise invoices.\n</skills>" in prompt
     assert "skills__read_skill" in prompt.split("<skills>")[1]
     assert "Skills first" in prompt, "the rule is stated up front"
-    assert "<skills>" not in PromptBuilder().build({}, ""), "no empty skills block"
+    assert "</skills>" not in PromptBuilder().build({}, ""), "no empty skills block"
 
 
 async def test_memory_and_skills_tools(tmp_path: Path) -> None:
