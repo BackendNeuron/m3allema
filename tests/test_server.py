@@ -20,7 +20,7 @@ from m3allema.server.app import _origin_ok, create_app
 from m3allema.server.approvals import WebApprover
 from m3allema.workspace.workspace import Workspace
 
-TOKEN = "test-token"
+TOKEN = "test-token"  # noqa: S105 - test value, not a secret
 SEND = ToolSpec("gmail__send", "Send an email", risk=Risk.EXTERNAL)
 
 
