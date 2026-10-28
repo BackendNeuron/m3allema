@@ -1,9 +1,10 @@
 ---
 description: Summarise a folder of invoices (PDF, Word or Excel) into one Excel workbook with totals.
 ---
-1. Ask which folder and period if the owner did not say. Default: `invoices/` for this month.
-2. List the files with `files__list_files`. Read each one with `docs__read_document` (PDF, Word)
-   or `excel__read_sheet` (Excel).
+1. Use the folder and period the owner gave. If they did not say, do not stop to ask: use
+   `invoices/` and every invoice in it, and state that assumption in your reply.
+2. List the files with `files__list_files`. Read each one with `docs__read_document` (PDF, Word),
+   `excel__read_sheet` (Excel) or `files__read_file` (text, CSV).
 3. For each invoice take: number, date, client, amount before tax, tax, total, currency, due date.
    If a value is missing, leave the cell empty and note it. Never guess an amount.
 4. Write `reports/invoice-summary-<YYYY-MM>.xlsx` with `excel__write_sheet`: one row per
