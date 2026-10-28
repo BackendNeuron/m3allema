@@ -9,7 +9,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 # Dependencies first, so code changes do not reinstall them.
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock README.md LICENSE ./
 RUN uv sync --locked --no-dev --no-install-project --extra voice
 COPY src ./src
 RUN uv sync --locked --no-dev --extra voice
