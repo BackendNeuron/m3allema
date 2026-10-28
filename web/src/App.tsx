@@ -8,6 +8,7 @@ import { RunsView } from "./components/RunsView";
 import { Thread } from "./components/Thread";
 import type { Onboarding as OnboardingData, Status } from "./types";
 import { useLiveSession } from "./useLiveSession";
+import { useVoice } from "./useVoice";
 
 type View = "thread" | "runs" | "setup";
 
@@ -33,6 +34,13 @@ export function App() {
 
   const live = useLiveSession(refreshStatus);
   const { state } = live;
+
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const addTranscript = useCallback((text: string) => {
+    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text));
+    document.getElementById("input")?.focus();
+  }, []);
+  const voice = useVoice(addTranscript, setVoiceNotice);
 
   const submit = (event?: FormEvent) => {
     event?.preventDefault();
@@ -158,10 +166,33 @@ export function App() {
                     placeholder="Ask in Arabic, Franco or English…"
                   />
                   <div className="composer-bar">
-                    <span className="muted small">Enter to send · Shift+Enter for a new line</span>
-                    <button type="submit" className="primary" disabled={state.busy || live.connection !== "open"}>
-                      Send
-                    </button>
+                    <span className="muted small">
+                      {voice.state === "recording"
+                        ? "Listening… click the microphone to stop"
+                        : voice.state === "transcribing"
+                          ? "Transcribing… you can edit the text before sending"
+                          : "Enter to send · Shift+Enter for a new line"}
+                    </span>
+                    <div className="buttons">
+                      {voice.supported && (
+                        <button
+                          type="button"
+                          className={`mic ${voice.state}`}
+                          onClick={voice.toggle}
+                          disabled={voice.state === "transcribing"}
+                          aria-label={voice.state === "recording" ? "Stop recording" : "Speak a message"}
+                          aria-pressed={voice.state === "recording"}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      )}
+                      <button type="submit" className="primary" disabled={state.busy || live.connection !== "open"}>
+                        Send
+                      </button>
+                    </div>
                   </div>
                 </form>
               </main>
@@ -176,7 +207,12 @@ export function App() {
           </div>
         </div>
       </div>
-      {live.notice && (
+      {voiceNotice && (
+        <div className="toast" role="status" onClick={() => setVoiceNotice(null)}>
+          {voiceNotice}
+        </div>
+      )}
+      {!voiceNotice && live.notice && (
         <div className="toast" role="status" onClick={live.dismissNotice}>
           {live.notice}
         </div>

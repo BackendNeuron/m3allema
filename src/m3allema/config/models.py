@@ -121,6 +121,33 @@ class StorageSettings(_Strict):
     url: str | None = None
 
 
+class SpeechSettings(_Strict):
+    """Speech-to-text for voice input.
+
+    ``local`` runs faster-whisper on this machine (private, no key; install
+    ``m3allema[voice]``). ``groq`` sends audio to Groq's hosted Whisper, which is
+    faster on small machines. Transcripts are always shown for review, never
+    sent on their own.
+    """
+
+    engine: Literal["local", "groq", "off"] = "local"
+    model: str = "small"
+    language: str = Field(default="auto", description="auto, or a code such as ar or en")
+    api_key: str | None = None
+    """For ``groq``: ``env:GROQ_API_KEY``."""
+
+
+class TelegramSettings(_Strict):
+    """The Telegram bot started by ``m3allema telegram``.
+
+    Only the listed Telegram user ids may talk to the bot; everyone else is
+    ignored. Send ``/start`` to the bot to see your id.
+    """
+
+    bot_token: str = Field(min_length=10, description="env:TELEGRAM_BOT_TOKEN")
+    owner_ids: list[int] = Field(default_factory=list)
+
+
 class AppConfig(_Strict):
     """The whole of ``config.yaml``."""
 
@@ -133,6 +160,8 @@ class AppConfig(_Strict):
         default_factory=lambda: ["files", "excel", "docs", "web", "memory", "skills"]
     )
     pricing: dict[str, Price] = Field(default_factory=dict)
+    speech: SpeechSettings = Field(default_factory=SpeechSettings)
+    telegram: TelegramSettings | None = None
 
     @model_validator(mode="after")
     def _check_model_providers(self) -> AppConfig:

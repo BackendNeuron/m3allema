@@ -167,3 +167,11 @@ button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .option:hover { color: var(--text); background: var(--surface-2); }
 .option.on { border-color: var(--gold); color: var(--gold); background: #1a160e; }
 .onboarding-foot { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; }
+
+/* Voice input */
+.mic { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; color: var(--text-2); }
+.mic:hover { color: var(--text); background: var(--surface-2); }
+.mic.recording { color: #fff; background: var(--garnet); border-color: var(--garnet); animation: mic-pulse 1.4s ease-in-out infinite; }
+.mic.transcribing { opacity: 0.6; cursor: progress; }
+@keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(194, 51, 74, 0.45); } 50% { box-shadow: 0 0 0 6px rgba(194, 51, 74, 0); } }
+@media (prefers-reduced-motion: reduce) { .mic.recording { animation: none; } }

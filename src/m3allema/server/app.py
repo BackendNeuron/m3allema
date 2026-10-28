@@ -19,13 +19,22 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -43,6 +52,7 @@ from m3allema.runtime import (
     open_stores,
 )
 from m3allema.server.approvals import WebApprover
+from m3allema.speech import SpeechError, Transcriber, build_transcriber
 from m3allema.storage.codec import message_to_dict
 from m3allema.storage.event_store import RunRecord
 from m3allema.storage.serialization import event_kind, event_to_payload
@@ -159,6 +169,28 @@ def create_app(
             "skipped": list(result.skipped),
             "backup_dir": result.backup_dir.relative_to(workspace.root).as_posix(),
         }
+
+    transcribers: dict[str, Transcriber | None] = {}
+
+    @app.post("/api/transcribe", dependencies=authed)
+    async def transcribe(request: Request) -> dict[str, str]:
+        # The text goes back into the message box for the owner to review; it is never sent.
+        if "engine" not in transcribers:
+            try:
+                transcribers["engine"] = build_transcriber(
+                    load_config(workspace.config_path).speech
+                )
+            except (ConfigError, SpeechError) as exc:
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+        engine = transcribers["engine"]
+        if engine is None:
+            raise HTTPException(status_code=503, detail="voice input is off (speech.engine)")
+        audio = await request.body()
+        try:
+            result = await engine.transcribe(audio, _audio_name(request.headers))
+        except SpeechError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"text": result.text, "language": result.language}
 
     @app.websocket("/api/ws")
     async def live(websocket: WebSocket) -> None:
@@ -304,6 +336,13 @@ def _run_json(run: RunRecord) -> dict[str, Any]:
         "output_tokens": run.output_tokens,
         "cost_usd": run.cost_usd,
     }
+
+
+def _audio_name(headers: Mapping[str, str]) -> str:
+    """Pick a file name whose extension tells the engine the audio format."""
+    kind = headers.get("content-type", "").split(";")[0].strip()
+    extension = {"audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav"}
+    return f"voice.{extension.get(kind, 'webm')}"
 
 
 def _token_ok(given: str | None, expected: str) -> bool:

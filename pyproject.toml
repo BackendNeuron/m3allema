@@ -43,6 +43,9 @@ dependencies = [
     "websockets>=17.3",
 ]
 
+[project.optional-dependencies]
+voice = ["faster-whisper>=1.1"]
+
 [project.urls]
 Homepage = "https://github.com/BackendNeuron/m3allema"
 Repository = "https://github.com/BackendNeuron/m3allema"
@@ -102,7 +105,7 @@ packages = ["m3allema"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["bs4.*", "googleapiclient.*", "google_auth_oauthlib.*"]
+module = ["bs4.*", "googleapiclient.*", "google_auth_oauthlib.*", "faster_whisper.*"]
 ignore_missing_imports = true
 
 # google-auth is only partly annotated; keep strictness everywhere else.
