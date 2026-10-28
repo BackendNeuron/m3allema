@@ -29,8 +29,9 @@ PREVIEW_CHARS = 600
 _MENTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("email", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
     ("link", re.compile(r"(?:https?://|www\.)[^\s\"'<>)\]]+", re.IGNORECASE)),
-    # IBAN-style accounts: two letters, two digits, then groups of letters and digits.
-    ("account", re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{2,}){2,}\b")),
+    # IBAN-style accounts (any country): two letters, two check digits, then groups of up
+    # to four letters or digits; the last group may be a single character.
+    ("account", re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{1,4}){3,8}\b")),
     # Long digit runs (phone, card or account numbers), allowing spaces and dashes.
     ("number", re.compile(r"(?<![\w.,])\+?\d(?:[ -]?\d){7,}(?!\w|[.,]\d)")),
 )
@@ -97,19 +98,24 @@ class ApprovalView:
 
 
 def find_mentions(text: str) -> list[str]:
-    """Email addresses, links and long numbers in ``text``, each once, in order."""
-    found: list[tuple[int, str]] = []
+    """Email addresses, links, accounts and long numbers in ``text``, each once, in order.
+
+    When two patterns match overlapping text (the digits inside an IBAN, say),
+    only the longest match is kept.
+    """
+    spans: list[tuple[int, int, str]] = []
     for _, pattern in _MENTION_PATTERNS:
-        found += [
-            (m.start(), m.group().rstrip(".,;:"))
-            for m in pattern.finditer(text)
-            if not _DATE.fullmatch(m.group())
-        ]
-    seen: set[str] = set()
+        for match in pattern.finditer(text):
+            value = match.group().rstrip(".,;:")
+            if not _DATE.fullmatch(value):
+                spans.append((match.start(), match.start() + len(value), value))
+    kept: list[tuple[int, int, str]] = []
+    for start, end, value in sorted(spans, key=lambda s: s[0] - s[1]):  # longest first
+        if all(end <= k_start or start >= k_end for k_start, k_end, _ in kept):
+            kept.append((start, end, value))
     ordered: list[str] = []
-    for _, value in sorted(found):
-        if value not in seen and not any(value in other for other in seen):
-            seen.add(value)
+    for _, _, value in sorted(kept):
+        if value not in ordered:
             ordered.append(value)
     return ordered
 

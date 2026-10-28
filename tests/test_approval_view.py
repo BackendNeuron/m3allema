@@ -37,6 +37,29 @@ def test_overwrite_is_flagged() -> None:
     assert describe_call(call, spec).warnings == ["Replaces an existing file."]
 
 
+def test_a_full_iban_is_one_mention_whatever_its_country() -> None:
+    text = (
+        "Pay EG38 0019 0005 0000 0000 2631 8000 2 or GB82 WEST 1234 5698 7654 32 "
+        "or SA03 8000 0000 6080 1016 7519, office +20 2 2735 1234."
+    )
+    assert find_mentions(text) == [
+        "EG38 0019 0005 0000 0000 2631 8000 2",
+        "GB82 WEST 1234 5698 7654 32",
+        "SA03 8000 0000 6080 1016 7519",
+        "+20 2 2735 1234",
+    ]
+
+
+def test_ibans_from_other_regions() -> None:
+    # The pattern has no country list: any IBAN country (about 90) has this shape.
+    examples = [
+        "DE89 3704 0044 0532 0130 00",  # Germany
+        "FR14 2004 1010 0505 0001 3M02 606",  # France, letters near the end
+        "AE07 0331 2345 6789 0123 456",  # United Arab Emirates
+    ]
+    assert find_mentions("Accounts: " + "; ".join(examples)) == examples
+
+
 def test_mentions_catch_accounts_links_and_phones_but_not_dates_or_amounts() -> None:
     text = (
         "Pay EG99 1234 5678 9012. See https://evil.example/x. Call +20 100 123 4567. "
