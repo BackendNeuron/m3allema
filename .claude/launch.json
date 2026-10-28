@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "C:\\Mohamed\\m3allema\\.venv\\Scripts\\m3allema.exe",
+      "runtimeArgs": ["serve", "-w", "C:\\Mohamed\\m3allema\\.dev-workspace", "--no-open", "--port", "8765"],
+      "env": { "M3ALLEMA_DASHBOARD_TOKEN": "dev-token" },
+      "port": 8765
+    }
+  ]
+}

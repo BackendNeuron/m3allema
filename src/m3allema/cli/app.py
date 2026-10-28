@@ -108,6 +108,35 @@ def chat(
 
 
 @app.command()
+def serve(
+    workspace: WorkspaceOption = Path(),
+    port: Annotated[int, typer.Option(help="Local port.")] = 8765,
+    open_browser: Annotated[
+        bool, typer.Option("--open/--no-open", help="Open the dashboard in the browser.")
+    ] = True,
+) -> None:
+    """Start the web dashboard on this computer only (127.0.0.1)."""
+    import os
+    import secrets
+    import webbrowser
+
+    import uvicorn
+
+    from m3allema.server.app import create_app
+
+    ws = _workspace(workspace)
+    # A fixed token can be set for development; normally a fresh one is made per start.
+    access_token = os.environ.get("M3ALLEMA_DASHBOARD_TOKEN") or secrets.token_urlsafe(24)
+    url = f"http://127.0.0.1:{port}/?token={access_token}"
+    console.print(f"[bold]M3allema dashboard[/bold] for {escape(ws.root.name)}")
+    console.print(f"Open: [cyan]{url}[/cyan]")
+    console.print("[dim]The link contains a private access token. Press Ctrl+C to stop.[/dim]")
+    if open_browser:
+        webbrowser.open(url)
+    uvicorn.run(create_app(ws.root, access_token), host="127.0.0.1", port=port, log_level="warning")
+
+
+@app.command()
 def conversations(
     workspace: WorkspaceOption = Path(),
     limit: Annotated[int, typer.Option(help="How many to show.")] = 20,

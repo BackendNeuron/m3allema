@@ -13,7 +13,6 @@ from email.message import EmailMessage
 from typing import Any, Protocol
 
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
 from m3allema.text import html_to_text
 
@@ -131,11 +130,19 @@ class SheetsGateway(Protocol):
         ...
 
 
+def _build(api: str, version: str, credentials: Credentials) -> Any:
+    """Create a Google API client. Imported lazily: the library is heavy and only
+    needed once a Google tool is actually enabled."""
+    from googleapiclient.discovery import build
+
+    return build(api, version, credentials=credentials, cache_discovery=False)
+
+
 class GoogleGmail:
     """Gmail API implementation of :class:`GmailGateway`."""
 
     def __init__(self, credentials: Credentials) -> None:
-        self._messages = build("gmail", "v1", credentials=credentials, cache_discovery=False)
+        self._messages = _build("gmail", "v1", credentials)
 
     def search(self, query: str, limit: int) -> list[EmailSummary]:
         """Find emails using Gmail search syntax."""
@@ -220,7 +227,7 @@ class GoogleCalendar:
     """Calendar API implementation of :class:`CalendarGateway`."""
 
     def __init__(self, credentials: Credentials) -> None:
-        self._events = build("calendar", "v3", credentials=credentials, cache_discovery=False)
+        self._events = _build("calendar", "v3", credentials)
 
     def list_events(self, time_min: str, time_max: str, limit: int) -> list[CalendarEvent]:
         """Events on the primary calendar between two RFC 3339 times."""
@@ -268,7 +275,7 @@ class GoogleSheets:
     """Sheets API implementation of :class:`SheetsGateway`."""
 
     def __init__(self, credentials: Credentials) -> None:
-        service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
+        service = _build("sheets", "v4", credentials)
         self._values = service.spreadsheets().values()
 
     def read(self, spreadsheet_id: str, cell_range: str) -> list[list[CellValue]]:

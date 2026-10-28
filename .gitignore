@@ -27,3 +27,10 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Web dashboard
+web/node_modules/
+.npm-cache/
+
+# Local dev workspace
+.dev-workspace/
