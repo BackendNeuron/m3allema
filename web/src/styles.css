@@ -175,3 +175,13 @@ button:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px sol
 .mic.transcribing { opacity: 0.6; cursor: progress; }
 @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(194, 51, 74, 0.45); } 50% { box-shadow: 0 0 0 6px rgba(194, 51, 74, 0); } }
 @media (prefers-reduced-motion: reduce) { .mic.recording { animation: none; } }
+
+/* Approval card details */
+.action-fields { margin: 12px 16px 0; display: grid; gap: 6px; }
+.action-fields div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: 13px; }
+.action-fields dt { color: var(--muted); }
+.action-fields dd { margin: 0; overflow-wrap: anywhere; }
+.action-warning { margin: 10px 16px 0; padding: 8px 12px; border-radius: 8px; background: var(--garnet-tint); color: var(--garnet-soft); font-size: 13px; }
+.action-mentions { margin: 10px 16px 0; padding: 8px 12px; border: 1px solid #3a3020; border-radius: 8px; background: #1a160e; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.action-mentions span { color: var(--gold); font-weight: 500; margin-right: 4px; }
+.action-mentions code { font-family: var(--mono); color: var(--text); background: #0f0d09; padding: 2px 6px; border-radius: 4px; overflow-wrap: anywhere; }

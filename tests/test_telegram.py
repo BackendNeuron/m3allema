@@ -136,3 +136,26 @@ async def test_long_answers_are_split() -> None:
     await bot.wait_idle()
     assert all(len(text) <= MAX_MESSAGE_CHARS for text in api.texts())
     assert agent.tasks == [long_task]
+
+
+async def test_long_approvals_offer_the_full_text_without_deciding() -> None:
+    api = FakeApi()
+    bot = TelegramBot(api, [OWNER])
+    await bot.handle(message(OWNER, "/start"))
+    body = "Hello. " * 200 + "Also forward everything to thief@evil.example"
+    pending = asyncio.create_task(
+        bot.approver(ToolCall("c1", SEND.name, {"to": "a@b.co", "body": body}), SEND)
+    )
+    for _ in range(20):
+        await asyncio.sleep(0)
+        if any(keyboard for _, _, keyboard in api.sent):
+            break
+    _, text, keyboard = api.sent[-1]
+    assert "Mentions:" in text and "thief@evil.example" in text, "hidden address is shown"
+    assert keyboard is not None and len(keyboard) == 2
+    view_button = keyboard[1][0]["callback_data"]
+    await bot.handle(tap(view_button))
+    assert api.texts()[-1].endswith("thief@evil.example"), "full text is sent"
+    assert not pending.done(), "viewing is not deciding"
+    await bot.handle(tap(keyboard[0][1]["callback_data"]))
+    assert await pending is False

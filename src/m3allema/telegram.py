@@ -24,10 +24,8 @@ from typing import Any, Protocol
 
 import httpx
 
-from m3allema.agent.loop import describe_arguments
 from m3allema.agent.permissions import Approver
 from m3allema.domain.events import RunFinished, ToolCallStarted
-from m3allema.domain.messages import ToolCall
 from m3allema.server.approvals import WebApprover
 from m3allema.speech import SpeechError, Transcriber
 
@@ -154,6 +152,7 @@ class TelegramBot:
         self._chat_id: int | None = None
         self._approver = WebApprover(self._send_approval)
         self._transcripts: dict[str, str] = {}
+        self._full_texts: dict[str, str] = {}
         self._task: asyncio.Task[None] | None = None
 
     @property
@@ -246,11 +245,18 @@ class TelegramBot:
             return
         kind, _, rest = str(query.get("data", "")).partition(":")
         key, _, choice = rest.partition(":")
+        if kind == "vw":
+            # Keep the Approve/Decline buttons: viewing is not deciding.
+            await self._api.answer_callback(str(query["id"]))
+            full = self._full_texts.get(key)
+            await self._say(full if full is not None else "That request is no longer open.")
+            return
         message = query.get("message", {})
         with contextlib.suppress(TelegramError, httpx.HTTPError):
             await self._api.remove_keyboard(int(message["chat"]["id"]), int(message["message_id"]))
         if kind == "ap":
             allow = choice == "yes"
+            self._full_texts.pop(key, None)
             answered = self._approver.answer(key, allow)
             note = ("Approved" if allow else "Declined") if answered else "Already answered"
             await self._api.answer_callback(str(query["id"]), note)
@@ -289,21 +295,27 @@ class TelegramBot:
         await self._say(answer or "Done.")
 
     async def _send_approval(self, request: dict[str, Any]) -> None:
-        """Render a WebApprover request as a message with buttons."""
-        call = ToolCall(request["id"], request["tool"], request["arguments"])
-        text = (
-            f"Approve this action? ({request['risk']})\n\n"
-            f"{call.name}\n{describe_arguments(call.arguments, 1500)}"
-        )
-        await self._say(
-            text,
-            [
-                [
-                    {"text": "Approve", "callback_data": f"ap:{request['id']}:yes"},
-                    {"text": "Decline", "callback_data": f"ap:{request['id']}:no"},
-                ]
-            ],
-        )
+        """Render a WebApprover request as a message with buttons.
+
+        Email addresses, links and long numbers anywhere in the arguments are
+        listed at the top in full; long text gets a "View full text" button.
+        """
+        view = request["view"]
+        lines = [f"Approve? {view['title']} ({request['risk']})", f"Tool: {request['tool']}"]
+        lines += [f"{label}: {value}" for label, value in view["fields"]]
+        lines += [f"! {warning}" for warning in view["warnings"]]
+        if view["mentions"]:
+            lines.append("Mentions: " + " · ".join(view["mentions"]))
+        lines += ["", request["preview"]]
+        buttons = [
+            {"text": "Approve", "callback_data": f"ap:{request['id']}:yes"},
+            {"text": "Decline", "callback_data": f"ap:{request['id']}:no"},
+        ]
+        keyboard: Keyboard = [buttons]
+        if request["is_long"]:
+            self._full_texts[request["id"]] = request["full_text"]
+            keyboard.append([{"text": "View full text", "callback_data": f"vw:{request['id']}:"}])
+        await self._say("\n".join(lines), keyboard)
 
     async def _say(self, text: str, keyboard: Keyboard | None = None) -> None:
         if self._chat_id is None:

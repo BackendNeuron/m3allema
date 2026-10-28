@@ -48,6 +48,9 @@ export interface ApprovalRequest {
   risk: Risk;
   description: string;
   arguments: Record<string, unknown>;
+  /** Readable layout computed by the server; mentions are found in the full text. */
+  view?: { title: string; fields: [string, string][]; warnings: string[]; mentions: string[] };
+  full_text?: string;
 }
 
 export type StoredMessage =

@@ -236,7 +236,7 @@ class Agent:
                     result, from_tool = await self._execute(call, spec)
                     elapsed = int((time.perf_counter() - started) * 1000)
                     # The model sees tool content marked as data; events keep it plain.
-                    results.append(as_untrusted(call.name, result) if from_tool else result)
+                    results.append(for_model(call, result) if from_tool else result)
                     risk = spec.risk.value if spec else ""
                     yield self._emit(run_id, ToolCallFinished(call, result, elapsed, risk))
                 self._append(ToolResultMessage(tuple(results)))
@@ -393,6 +393,24 @@ class Agent:
         if self._sink is not None:
             self._sink.record(run_id, event)
         return event
+
+
+OWNER_CONTENT_TOOLS = frozenset({"skills__read_skill"})
+"""Tools whose output is the owner's own approved content, not outside data.
+
+A skill reaches ``skills/`` only when the owner writes it or approves saving it,
+so its steps are instructions to follow. Marking them as untrusted data would
+contradict the prompt's "follow the skill" rule.
+"""
+
+
+def for_model(call: ToolCall, result: ToolResult) -> ToolResult:
+    """Label tool content for the model: the owner's skills as trusted, the rest as data."""
+    if call.name in OWNER_CONTENT_TOOLS and not result.is_error:
+        name = str(call.arguments.get("name", "")).replace('"', "")
+        body = result.content.replace("</skill", "<\\/skill")
+        return dataclasses.replace(result, content=f'<skill name="{name}">\n{body}\n</skill>')
+    return as_untrusted(call.name, result)
 
 
 def as_untrusted(tool: str, result: ToolResult) -> ToolResult:

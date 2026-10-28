@@ -6,8 +6,9 @@ import asyncio
 
 from rich.console import Console
 from rich.markup import escape
-from rich.prompt import Confirm
+from rich.prompt import Prompt
 
+from m3allema.agent.approval_view import describe_call
 from m3allema.agent.loop import describe_arguments
 from m3allema.agent.permissions import Approver
 from m3allema.domain.events import (
@@ -72,12 +73,28 @@ def terminal_approver(console: Console) -> Approver:
     """Build an approver that asks the owner in the terminal."""
 
     async def approve(call: ToolCall, spec: ToolSpec) -> bool:
+        view = describe_call(call, spec)
         style = _RISK_STYLE[spec.risk]
-        arguments = escape(describe_arguments(call.arguments, 600))
         console.print(
-            f"\n[{style}]{spec.risk.value}[/{style}] M3allema wants to run "
-            f"[bold]{escape(call.name)}[/bold]\n  [dim]{arguments}[/dim]"
+            f"\n[{style}]{spec.risk.value}[/{style}] [bold]{escape(view.title)}[/bold] "
+            f"[dim]({escape(call.name)})[/dim]"
         )
-        return await asyncio.to_thread(Confirm.ask, "Allow?", console=console, default=False)
+        for label, value in view.fields:
+            console.print(f"  {escape(label)}: {escape(value)}")
+        for warning in view.warnings:
+            console.print(f"  [bold red]! {escape(warning)}[/bold red]")
+        if view.mentions:
+            mentions = escape(" · ".join(view.mentions))
+            console.print(f"  [bold yellow]Mentions:[/bold yellow] {mentions}")
+        console.print(f"[dim]{escape(view.preview)}[/dim]")
+        choices = ["y", "n", "v"] if view.is_long else ["y", "n"]
+        question = "Allow?" + (" (v = view the full text)" if view.is_long else "")
+        while True:
+            answer = await asyncio.to_thread(
+                Prompt.ask, question, console=console, choices=choices, default="n"
+            )
+            if answer != "v":
+                return answer == "y"
+            console.print(escape(view.full_text))
 
     return approve

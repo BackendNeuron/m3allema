@@ -90,10 +90,37 @@ function ApprovalCard({ request, decision, onDecide }: ApprovalCardProps) {
   return (
     <section className="action" aria-label="Approval needed" ref={card}>
       <div className="action-head">
-        <strong>{request.tool}</strong>
+        <strong>{request.view?.title ?? request.tool}</strong>
         <span className={`risk ${request.risk}`}>{`${request.risk} · needs approval`}</span>
       </div>
-      <pre className="args">{JSON.stringify(request.arguments, null, 2)}</pre>
+      {request.view && (
+        <dl className="action-fields">
+          {request.view.fields.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+          <div>
+            <dt>Tool</dt>
+            <dd className="mono">{request.tool}</dd>
+          </div>
+        </dl>
+      )}
+      {request.view?.warnings.map((warning) => (
+        <div className="action-warning" key={warning}>
+          {warning}
+        </div>
+      ))}
+      {request.view && request.view.mentions.length > 0 && (
+        <div className="action-mentions">
+          <span>Mentions</span>
+          {request.view.mentions.map((mention) => (
+            <code key={mention}>{mention}</code>
+          ))}
+        </div>
+      )}
+      <pre className="args">{request.full_text ?? JSON.stringify(request.arguments, null, 2)}</pre>
       <div className="action-foot">
         {decision === undefined ? (
           <>

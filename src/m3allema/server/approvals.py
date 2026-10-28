@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from m3allema.agent.approval_view import describe_call
 from m3allema.domain.messages import ToolCall
 from m3allema.domain.tools import ToolSpec
 
@@ -37,6 +38,7 @@ class WebApprover:
     async def __call__(self, call: ToolCall, spec: ToolSpec) -> bool:
         """Ask the owner about ``call``; ``True`` only on an explicit approval."""
         request_id = uuid.uuid4().hex
+        view = describe_call(call, spec)
         future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
         self._waiting[request_id] = future
         try:
@@ -48,6 +50,10 @@ class WebApprover:
                     "risk": spec.risk.value,
                     "description": spec.description,
                     "arguments": call.arguments,
+                    "view": view.to_dict(),
+                    "full_text": view.full_text,
+                    "preview": view.preview,
+                    "is_long": view.is_long,
                 }
             )
             return await asyncio.wait_for(future, timeout=self._timeout_s)
