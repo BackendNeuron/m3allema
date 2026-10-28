@@ -72,7 +72,7 @@ def main() -> None:
     """Entry point used by the ``m3allema`` and ``mek`` scripts."""
     # The MCP server library turns on INFO logging for everything; per-request HTTP
     # lines from the SDKs only clutter the terminal.
-    for name in ("httpx", "httpcore", "openai", "anthropic", "mcp"):
+    for name in ("httpx", "httpx2", "httpcore", "openai", "anthropic", "mcp"):
         logging.getLogger(name).setLevel(logging.WARNING)
     app()
 
