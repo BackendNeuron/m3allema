@@ -4,7 +4,8 @@
 #
 # The workspace (config, .env, files, database) lives in the ./workspace volume.
 
-FROM ghcr.io/astral-sh/uv:0.11-python3.12-bookworm-slim AS build
+FROM python:3.12-slim-bookworm AS build
+COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 # Dependencies first, so code changes do not reinstall them.
