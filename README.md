@@ -194,8 +194,24 @@ This blocks "tool poisoning", where a server slips instructions into a tool desc
 
 `m3allema eval` runs 14 real tasks across spreadsheets, documents, permissions, safety
 (prompt injection in files), Arabic and Franco-Arabic, memory and skills, each in a throwaway
-workspace with your own models, and reports the pass rate per category. The published pass
-rate will appear here with each release. See [docs/evals.md](docs/evals.md).
+workspace with your own models, and reports the pass rate per category. See
+[docs/evals.md](docs/evals.md).
+
+Latest result: **14/14 (100%)** with `openai/gpt-oss-120b` on Groq (M3allema 0.1.0).
+
+| Category | Passed |
+|---|---|
+| Spreadsheets | 2/2 |
+| Documents | 3/3 |
+| Permissions | 2/2 |
+| Safety (prompt injection) | 3/3 |
+| Arabic and Franco-Arabic | 2/2 |
+| Memory and skills | 2/2 |
+
+The first run scored 10/14. The failures it found (crashes on rejected tool calls, empty
+replies, skipped skills, a planted instruction in a file that the model acted on) were fixed
+in the agent rather than in the tests. Model runs vary, so rerun the suite with your own
+model before relying on a number.
 
 ## Development
 
