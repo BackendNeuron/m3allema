@@ -29,7 +29,17 @@ from m3allema.workspace.workspace import Workspace
 PLACEHOLDER = "[YOUR BUSINESS NAME]"
 """Text in the template ``BUSINESS.md``; while it is there, onboarding has not run."""
 
-TOOL_CHOICES: tuple[str, ...] = ("files", "excel", "docs", "web", "gmail", "calendar", "sheets")
+TOOL_CHOICES: tuple[str, ...] = (
+    "files",
+    "excel",
+    "docs",
+    "web",
+    "memory",
+    "skills",
+    "gmail",
+    "calendar",
+    "sheets",
+)
 LANGUAGE_CHOICES: tuple[str, ...] = (
     "English",
     "Arabic",
@@ -195,7 +205,9 @@ class Answers(BaseModel):
     languages: list[str] = Field(default_factory=lambda: list(LANGUAGE_CHOICES))
     tone: str = Field(default="confident, warm and brief", max_length=200)
     rules: list[str] = Field(default_factory=list, max_length=30)
-    tools: list[str] = Field(default_factory=lambda: ["files", "excel", "docs", "web"])
+    tools: list[str] = Field(
+        default_factory=lambda: ["files", "excel", "docs", "web", "memory", "skills"]
+    )
     write_mode: Literal["ask", "auto"] = "ask"
     external_mode: Literal["ask", "deny", "auto"] = "ask"
     per_run_usd: float = Field(default=1.0, gt=0, le=1000)

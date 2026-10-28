@@ -37,7 +37,7 @@ def test_missing_env_var_is_a_clear_error(tmp_path: Path) -> None:
 def test_valid_config_loads(tmp_path: Path) -> None:
     config = load_config(write_config(tmp_path), environ={"TEST_KEY": "k"})
     assert config.providers["claude"].api_key == "k"
-    assert config.builtin_tools == ["files", "excel", "docs", "web"]
+    assert config.builtin_tools == ["files", "excel", "docs", "web", "memory", "skills"]
 
 
 @pytest.mark.parametrize(
@@ -61,7 +61,7 @@ def test_workspace_create_open_and_context(tmp_path: Path) -> None:
 
     opened = Workspace.open(tmp_path / "shop")
     context = opened.read_context()
-    assert list(context) == ["IDENTITY.md", "BUSINESS.md", "OWNER.md", "RULES.md"]
+    assert list(context) == ["IDENTITY.md", "BUSINESS.md", "OWNER.md", "RULES.md", "MEMORY.md"]
     assert opened.files_dir.is_dir()
 
     prompt = PromptBuilder().build(context)

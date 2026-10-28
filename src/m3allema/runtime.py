@@ -29,6 +29,7 @@ from m3allema.tools.hub import ToolHub
 from m3allema.tools.servers import ToolContext
 from m3allema.tools.trust import PendingTool, ToolTrustStore
 from m3allema.workspace.prompt import PromptBuilder
+from m3allema.workspace.skills import SkillLibrary
 from m3allema.workspace.workspace import Workspace
 
 TOOL_OUTPUTS_DIR = "_tool_outputs"
@@ -125,7 +126,8 @@ async def open_session(
         conversation_id = _resolve_resume(stores.conversations, resume) if resume else None
         history = stores.conversations.load(conversation_id) if conversation_id else ()
         sink = FanOutSink([stores.events, ReceiptWriter(workspace.receipts_dir, on_receipt)])
-        tool_context = ToolContext(workspace.files_dir, google_auth(workspace))
+        tool_context = ToolContext(workspace.files_dir, google_auth(workspace), workspace.root)
+        skills = SkillLibrary(workspace.root).index() if "skills" in config.builtin_tools else ""
         async with ToolHub.from_config(
             config.builtin_tools, config.mcp_servers, tool_context, trust_store(workspace)
         ) as hub:
@@ -134,7 +136,7 @@ async def open_session(
                 fallback=router.resolve("fallback"),
                 tools=hub,
                 gate=PolicyGate(policy, approver),
-                system_prompt=PromptBuilder().build(workspace.read_context()),
+                system_prompt=PromptBuilder().build(workspace.read_context(), skills),
                 settings=config.agent,
                 sink=sink,
                 messages=stores.conversations,

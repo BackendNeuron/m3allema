@@ -7,7 +7,11 @@ defaults:
   external: ask     # sending, paying, deleting, anything outside your control
 
 # Per-tool overrides. Shell-style patterns; the first match wins.
-tools: {}
+tools:
+  # Memory and skills outlive the conversation, so new ones always need your yes,
+  # even when write is auto. This stops a web page or email from planting rules.
+  "memory__*": ask
+  "skills__save_skill": ask
 #  "files__write_file": auto
 #  "shell__*": deny
 

@@ -7,6 +7,8 @@ A workspace is the single source of truth the owner can read and edit::
       BUSINESS.md   facts about the business
       OWNER.md      the owner's preferences
       RULES.md      soft guidance for the model
+      MEMORY.md     facts she learned, one dated line each
+      skills/       procedures for recurring jobs, one .md file each
       config.yaml   providers, models, tools (secrets as env:NAME)
       .env          secrets, never committed
       files/        documents M3allema may read and write
@@ -22,7 +24,13 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
-CONTEXT_FILES: tuple[str, ...] = ("IDENTITY.md", "BUSINESS.md", "OWNER.md", "RULES.md")
+CONTEXT_FILES: tuple[str, ...] = (
+    "IDENTITY.md",
+    "BUSINESS.md",
+    "OWNER.md",
+    "RULES.md",
+    "MEMORY.md",
+)
 """Markdown files loaded into the system prompt, in this order."""
 
 _TEMPLATE_FILES: tuple[str, ...] = (
@@ -72,6 +80,11 @@ class Workspace:
         return self.root / "files"
 
     @property
+    def skills_dir(self) -> Path:
+        """Procedures for recurring jobs, one Markdown file each."""
+        return self.root / "skills"
+
+    @property
     def state_dir(self) -> Path:
         """Internal state such as the SQLite database."""
         return self.root / ".m3allema"
@@ -114,6 +127,11 @@ class Workspace:
             if target.exists() and not overwrite:
                 continue
             target.write_text((templates / name).read_text(encoding="utf-8"), encoding="utf-8")
+        workspace.skills_dir.mkdir(exist_ok=True)
+        for skill in (templates / "skills").iterdir():
+            target = workspace.skills_dir / skill.name
+            if skill.name.endswith(".md") and (overwrite or not target.exists()):
+                target.write_text(skill.read_text(encoding="utf-8"), encoding="utf-8")
         workspace.files_dir.mkdir(exist_ok=True)
         workspace.state_dir.mkdir(exist_ok=True)
         return workspace

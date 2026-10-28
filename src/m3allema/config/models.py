@@ -129,7 +129,9 @@ class AppConfig(_Strict):
     agent: AgentSettings = Field(default_factory=AgentSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     mcp_servers: dict[str, McpServerConfig] = Field(default_factory=dict)
-    builtin_tools: list[str] = Field(default_factory=lambda: ["files", "excel", "docs", "web"])
+    builtin_tools: list[str] = Field(
+        default_factory=lambda: ["files", "excel", "docs", "web", "memory", "skills"]
+    )
     pricing: dict[str, Price] = Field(default_factory=dict)
 
     @model_validator(mode="after")

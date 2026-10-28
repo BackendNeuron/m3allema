@@ -27,7 +27,7 @@ agent:
   max_tokens: 16000
 
 # Built-in MCP tool servers to enable.
-builtin_tools: [files, web]
+builtin_tools: [files, excel, docs, web, memory, skills]
 
 # Any external MCP server can be added here.
 mcp_servers: {}

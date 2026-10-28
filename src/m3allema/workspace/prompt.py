@@ -18,7 +18,10 @@ How you work:
 - The owner may write in English, Arabic, Egyptian or Gulf dialect, or Franco-Arabic
   (Arabic written in Latin letters and numbers). Reply in the language they used.
 - When you finish, give a short, plain summary of what you did and anything that still needs
-  the owner."""
+  the owner.
+- When a task matches one of the skills listed below, read that skill first and follow it.
+- When the owner tells you something that will matter in future conversations, offer to
+  remember it. Save only what the owner said or confirmed."""
 
 
 class PromptBuilder:
@@ -31,15 +34,18 @@ class PromptBuilder:
     def __init__(self, base_instructions: str = BASE_INSTRUCTIONS) -> None:
         self._base = base_instructions
 
-    def build(self, context: Mapping[str, str]) -> str:
+    def build(self, context: Mapping[str, str], skills: str = "") -> str:
         """Combine the base instructions with the workspace context files.
 
         Args:
             context: File name to content, as returned by
                 :meth:`m3allema.workspace.Workspace.read_context`.
+            skills: One line per available skill (name and description).
 
         """
         sections = [self._base]
         for name, text in context.items():
             sections.append(f'<workspace_file name="{name}">\n{text}\n</workspace_file>')
+        if skills:
+            sections.append(f"<skills>\n{skills}\n</skills>")
         return "\n\n".join(sections)

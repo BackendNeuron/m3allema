@@ -22,8 +22,10 @@ from m3allema.tools.servers.docs import create_docs_server
 from m3allema.tools.servers.excel import create_excel_server
 from m3allema.tools.servers.files import create_files_server
 from m3allema.tools.servers.gmail import create_gmail_server
+from m3allema.tools.servers.memory import create_memory_server
 from m3allema.tools.servers.sheets import create_sheets_server
 from m3allema.tools.servers.shell import create_shell_server
+from m3allema.tools.servers.skills import create_skills_server
 from m3allema.tools.servers.web import create_web_server
 
 
@@ -34,11 +36,19 @@ class ToolContext:
     Args:
         files_root: The only folder local file tools may touch.
         google: Google sign-in, or ``None`` when Google tools are not available.
+        workspace_root: The workspace folder, for memory and skills. Defaults
+            to the parent of ``files_root``.
 
     """
 
     files_root: Path
     google: GoogleAuth | None = None
+    workspace_root: Path | None = None
+
+    @property
+    def root(self) -> Path:
+        """The workspace folder."""
+        return self.workspace_root or self.files_root.parent
 
     @cached_property
     def google_credentials(self) -> Credentials:
@@ -64,6 +74,8 @@ BUILTIN_SERVERS: dict[str, ServerFactory] = {
     "gmail": lambda ctx: create_gmail_server(GoogleGmail(ctx.google_credentials)),
     "calendar": lambda ctx: create_calendar_server(GoogleCalendar(ctx.google_credentials)),
     "sheets": lambda ctx: create_sheets_server(GoogleSheets(ctx.google_credentials)),
+    "memory": lambda ctx: create_memory_server(ctx.root),
+    "skills": lambda ctx: create_skills_server(ctx.root),
 }
 """Built-in servers by name."""
 
