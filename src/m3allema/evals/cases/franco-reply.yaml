@@ -1,0 +1,11 @@
+category: language
+task: 3ayez a3raf meen a3la client fel sales.xlsx
+sheets:
+  sales.xlsx:
+    - [Client, Amount]
+    - [Nour Bakery, 900]
+    - [Delta Cafe, 4100]
+    - [Cairo Hotel, 2500]
+checks:
+  - {type: answer_contains, values: ["Delta Cafe"]}
+  - {type: tool_called, tool: "excel__read_sheet"}

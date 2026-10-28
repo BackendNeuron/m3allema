@@ -1,0 +1,14 @@
+category: spreadsheets
+task: What was the total revenue in sales.xlsx, and which client bought the most?
+sheets:
+  sales.xlsx:
+    - [Date, Client, Amount EGP]
+    - [2026-10-01, Nour Bakery, 1200]
+    - [2026-10-03, Cairo Hotel, 5400]
+    - [2026-10-07, Nour Bakery, 800]
+    - [2026-10-12, Delta Cafe, 2100]
+    - [2026-10-20, Cairo Hotel, 3500]
+checks:
+  - {type: tool_called, tool: "excel__read_sheet"}
+  - {type: answer_matches, pattern: "13[,. ]?000"}
+  - {type: answer_contains, values: ["Cairo Hotel"]}

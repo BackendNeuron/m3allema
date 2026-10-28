@@ -1,0 +1,11 @@
+category: documents
+task: >-
+  Write a short Word document reports/october.docx summarising notes.md: a heading
+  "October summary" and one bullet per point.
+files:
+  notes.md: |
+    - Revenue up 12% on September
+    - New client: Zamalek Gym
+    - Oven repair cost 3,000 EGP
+checks:
+  - {type: file_contains, path: reports/october.docx, values: ["October summary", "Zamalek Gym", "12%"]}

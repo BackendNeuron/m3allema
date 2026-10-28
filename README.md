@@ -40,6 +40,17 @@ cp .env.example .env          # then put your ANTHROPIC_API_KEY in .env
 m3allema chat
 ```
 
+Or with Docker (no Python needed):
+
+```bash
+git clone https://github.com/BackendNeuron/m3allema && cd m3allema
+docker compose run --rm init          # creates ./workspace
+# put your ANTHROPIC_API_KEY in workspace/.env
+docker compose up -d dashboard        # the dashboard link is in: docker compose logs dashboard
+```
+
+The dashboard is published on `127.0.0.1` only, and everything stays in `./workspace`.
+
 Try: *"Read the invoices in files/ and build an Excel summary"*. Reading runs on its own;
 writing the workbook asks you first. When the run ends, a receipt in `receipts/` lists what
 she did, what it cost and what still needs you.
@@ -95,6 +106,7 @@ part replaceable and easy to test. See [docs/architecture.md](docs/architecture.
 | `m3allema run "TASK"` | Run one task and exit |
 | `m3allema serve` | Open the web dashboard on `127.0.0.1` |
 | `m3allema telegram` | Run the Telegram bot ([setup guide](docs/telegram.md)) |
+| `m3allema eval` | Run the public eval suite with your models ([details](docs/evals.md)) |
 | `m3allema conversations` | Saved conversations you can resume |
 | `m3allema runs list` | Recent runs with status, tokens, cost and today's spend |
 | `m3allema runs show ID` | Replay every step of a run |
@@ -178,6 +190,13 @@ External MCP servers are untrusted: their tools always ask before running, and a
 new or whose description changed stays hidden until you approve it with `m3allema mcp trust`.
 This blocks "tool poisoning", where a server slips instructions into a tool description.
 
+## Evals
+
+`m3allema eval` runs 14 real tasks across spreadsheets, documents, permissions, safety
+(prompt injection in files), Arabic and Franco-Arabic, memory and skills, each in a throwaway
+workspace with your own models, and reports the pass rate per category. The published pass
+rate will appear here with each release. See [docs/evals.md](docs/evals.md).
+
 ## Development
 
 ```bash
@@ -192,7 +211,8 @@ cd web; npm ci; npm run build   # rebuild the dashboard into src/m3allema/server
 During dashboard work, run `m3allema serve` and `npm run dev` in `web/` (Vite proxies `/api`
 to port 8765). Commit the rebuilt static files; CI fails if they are out of date.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
+Releases: [CHANGELOG.md](CHANGELOG.md); pushing a `v*` tag builds, checks and publishes to PyPI.
 
 ## Roadmap
 
@@ -203,7 +223,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 | ✅ 3. Google + MCP | Gmail, Calendar, Sheets with encrypted sign-in; external MCP tools pinned and approved before use |
 | ✅ 4. Web dashboard | Live run timeline, approve buttons, cost per run, onboarding interview |
 | ✅ 5. Memory, skills, Telegram | Memory and learned skills with approval, five starter skills, voice input (local Whisper or Groq), Telegram tasks and approvals |
-| 6. Evals + launch | Public eval suite and pass rate, Docker one-command setup |
+| 6. Evals + launch | ✅ Public eval suite, Docker one-command setup, release pipeline · next: first published pass rate and PyPI release |
 
 ## License
 

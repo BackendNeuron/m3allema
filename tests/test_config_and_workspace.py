@@ -29,6 +29,39 @@ def test_env_refs_resolve_recursively() -> None:
     }
 
 
+def test_telegram_and_speech_blocks(tmp_path: Path) -> None:
+    text = CONFIG + (
+        "telegram:\n  bot_token: env:TG_TOKEN\n  owner_ids: [123456789]\n"
+        "speech:\n  engine: groq\n  api_key: env:GROQ_KEY\n  language: ar\n"
+    )
+    environ = {"TEST_KEY": "k", "TG_TOKEN": "123456:abcdefghij", "GROQ_KEY": "g"}
+    config = load_config(write_config(tmp_path, text), environ=environ)
+    assert config.telegram is not None
+    assert config.telegram.bot_token == "123456:abcdefghij"  # noqa: S105 - test value
+    assert config.telegram.owner_ids == [123456789]
+    assert (config.speech.engine, config.speech.api_key, config.speech.language) == (
+        "groq",
+        "g",
+        "ar",
+    )
+
+
+def test_telegram_is_off_by_default_and_validated(tmp_path: Path) -> None:
+    config = load_config(write_config(tmp_path), environ={"TEST_KEY": "k"})
+    assert config.telegram is None
+    assert config.speech.engine == "local"
+    bad = CONFIG + "telegram:\n  bot_token: short\n  owner_ids: [not-a-number]\n"
+    with pytest.raises(ConfigError):
+        load_config(write_config(tmp_path, bad), environ={"TEST_KEY": "k"})
+
+
+def test_template_config_loads_with_a_key(tmp_path: Path) -> None:
+    workspace = Workspace.create(tmp_path)
+    config = load_config(workspace.config_path, environ={"ANTHROPIC_API_KEY": "k"})
+    assert config.telegram is None
+    assert "memory" in config.builtin_tools
+
+
 def test_missing_env_var_is_a_clear_error(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="TEST_KEY"):
         load_config(write_config(tmp_path), environ={})

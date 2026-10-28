@@ -10,7 +10,11 @@ authors = [
 ]
 keywords = ["ai-agent", "mcp", "llm", "automation", "small-business", "arabic"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Natural Language :: Arabic",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python :: 3.11",
@@ -50,6 +54,7 @@ voice = ["faster-whisper>=1.1"]
 Homepage = "https://github.com/BackendNeuron/m3allema"
 Repository = "https://github.com/BackendNeuron/m3allema"
 Issues = "https://github.com/BackendNeuron/m3allema/issues"
+Changelog = "https://github.com/BackendNeuron/m3allema/blob/main/CHANGELOG.md"
 
 [project.scripts]
 m3allema = "m3allema.cli.app:main"

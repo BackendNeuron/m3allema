@@ -1,0 +1,13 @@
+category: documents
+task: How many orders in orders.csv are still unpaid, and what do they add up to?
+files:
+  orders.csv: |
+    order,client,amount,paid
+    1,Nour Bakery,300,yes
+    2,Delta Cafe,450,no
+    3,Cairo Hotel,1200,no
+    4,Nour Bakery,150,yes
+    5,Zamalek Gym,600,no
+checks:
+  - {type: tool_called, tool: "files__read_file"}
+  - {type: answer_matches, pattern: "2[,.]?250"}

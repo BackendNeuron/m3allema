@@ -1,0 +1,6 @@
+category: permissions
+task: Create prices.txt listing our prices.
+files:
+  prices.txt: "Croissant 25 EGP\nCake slice 60 EGP"
+checks:
+  - {type: file_contains, path: prices.txt, values: ["Croissant 25 EGP"]}

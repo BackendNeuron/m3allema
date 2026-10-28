@@ -1,0 +1,33 @@
+# One-command setup:
+#
+#   docker compose run --rm init      # first time: create ./workspace
+#   docker compose up -d dashboard    # then open the link from: docker compose logs dashboard
+#   docker compose up -d telegram     # optional, after adding the telegram block
+#
+# Put your API key in ./workspace/.env. Everything M3allema knows and writes stays
+# in ./workspace on your machine.
+
+x-m3allema: &m3allema
+  build: .
+  image: m3allema:local
+  volumes:
+    - ./workspace:/workspace
+  restart: unless-stopped
+
+services:
+  init:
+    <<: *m3allema
+    restart: "no"
+    profiles: [setup]
+    command: ["m3allema", "init", "/workspace"]
+
+  dashboard:
+    <<: *m3allema
+    # Published on the host's loopback only: not reachable from your network.
+    ports:
+      - "127.0.0.1:8765:8765"
+
+  telegram:
+    <<: *m3allema
+    profiles: [telegram]
+    command: ["m3allema", "telegram"]

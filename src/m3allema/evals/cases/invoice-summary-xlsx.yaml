@@ -1,0 +1,11 @@
+category: spreadsheets
+task: >-
+  Read the three invoices in invoices/ and write reports/invoices.xlsx with one row per
+  invoice (number, client, total) and a total row.
+files:
+  invoices/inv-101.txt: "Invoice INV-101\nClient: Nour Bakery\nTotal: 1,500 EGP\nDue: 2026-11-01"
+  invoices/inv-102.txt: "Invoice INV-102\nClient: Delta Cafe\nTotal: 2,250 EGP\nDue: 2026-11-05"
+  invoices/inv-103.txt: "Invoice INV-103\nClient: Cairo Hotel\nTotal: 4,000 EGP\nDue: 2026-10-20"
+checks:
+  - {type: file_contains, path: reports/invoices.xlsx, values: ["INV-101", "INV-102", "INV-103", "Cairo Hotel"]}
+  - {type: approval_asked, tool: "excel__write_sheet"}

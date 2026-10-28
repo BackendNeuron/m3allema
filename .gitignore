@@ -34,3 +34,7 @@ web/node_modules/
 
 # Local dev workspace
 .dev-workspace/
+
+# Docker workspace and eval reports
+workspace/
+eval-report/

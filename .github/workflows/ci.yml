@@ -45,3 +45,22 @@ jobs:
         working-directory: web
       - name: Committed static files match the build
         run: test -z "$(git status --porcelain -- src/m3allema/server/static)" || (git status -- src/m3allema/server/static; exit 1)
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: m3allema:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: CLI runs in the image
+        run: |
+          docker run --rm m3allema:ci m3allema version
+          docker run --rm m3allema:ci m3allema init /tmp/ws

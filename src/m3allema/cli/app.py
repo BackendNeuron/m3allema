@@ -139,6 +139,54 @@ def chat(
     _run_async(_chat(workspace, target))
 
 
+@app.command("eval")
+def eval_suite(
+    workspace: WorkspaceOption = Path(),
+    only: Annotated[
+        str | None, typer.Option(help="Run only cases whose id or category contains this.")
+    ] = None,
+    cases: Annotated[
+        Path | None, typer.Option(help="Folder of case files (default: the built-in suite).")
+    ] = None,
+    output: Annotated[
+        Path, typer.Option(help="Where to write the JSON and Markdown reports.")
+    ] = Path("eval-report"),
+    yes: Annotated[bool, typer.Option("--yes", help="Do not ask before spending.")] = False,
+) -> None:
+    """Run the eval suite with this workspace's models and keys, and report the pass rate."""
+    import json
+
+    from m3allema.evals import load_cases, run_suite
+
+    ws = _workspace(workspace)
+    selected = load_cases(cases, only)
+    if not selected:
+        _fail("no eval cases matched")
+    config = load_config(ws.config_path)
+    console.print(
+        f"Running {len(selected)} cases with [bold]{escape(config.models.main)}[/bold]. "
+        "Each case is a real run and costs tokens."
+    )
+    if not yes and not Confirm.ask("Continue?", default=True):
+        raise typer.Exit(0)
+
+    def show(result: Any) -> None:
+        mark = "[green]pass[/green]" if result.passed else "[red]FAIL[/red]"
+        console.print(f"{mark} {escape(result.id)} [dim]({result.seconds:.0f}s)[/dim]")
+        for failure in result.failures:
+            console.print(f"     [dim]{escape(failure)}[/dim]")
+
+    report = asyncio.run(run_suite(selected, ws, config.models.main, on_result=show))
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "report.json").write_text(
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (output / "report.md").write_text(report.to_markdown(), encoding="utf-8")
+    console.print()
+    console.print(report.to_markdown())
+    console.print(f"[dim]Reports written to {escape(str(output))}[/dim]")
+
+
 @app.command()
 def telegram(
     workspace: WorkspaceOption = Path(),
@@ -187,6 +235,13 @@ def serve(
     open_browser: Annotated[
         bool, typer.Option("--open/--no-open", help="Open the dashboard in the browser.")
     ] = True,
+    host: Annotated[
+        str,
+        typer.Option(
+            help="Interface to listen on. Keep 127.0.0.1; use 0.0.0.0 only inside a container "
+            "whose port is published to 127.0.0.1 on the host."
+        ),
+    ] = "127.0.0.1",
 ) -> None:
     """Start the web dashboard on this computer only (127.0.0.1)."""
     import os
@@ -204,9 +259,14 @@ def serve(
     console.print(f"[bold]M3allema dashboard[/bold] for {escape(ws.root.name)}")
     console.print(f"Open: [cyan]{url}[/cyan]")
     console.print("[dim]The link contains a private access token. Press Ctrl+C to stop.[/dim]")
+    if host != "127.0.0.1":
+        console.print(
+            f"[yellow]Listening on {escape(host)}.[/yellow] Anyone who can reach this port and "
+            "has the link can use M3allema. Do this only inside a container."
+        )
     if open_browser:
         webbrowser.open(url)
-    uvicorn.run(create_app(ws.root, access_token), host="127.0.0.1", port=port, log_level="warning")
+    uvicorn.run(create_app(ws.root, access_token), host=host, port=port, log_level="warning")
 
 
 @app.command()

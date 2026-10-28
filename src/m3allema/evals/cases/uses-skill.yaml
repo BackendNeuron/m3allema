@@ -1,0 +1,8 @@
+category: memory_skills
+task: Do the invoice summary for the invoices folder.
+files:
+  invoices/a.txt: "Invoice A-1\nClient: Nour Bakery\nDate: 2026-10-02\nTotal: 1,000 EGP\nDue: 2026-11-02"
+  invoices/b.txt: "Invoice A-2\nClient: Delta Cafe\nDate: 2026-10-09\nTotal: 2,000 EGP\nDue: 2026-11-09"
+checks:
+  - {type: tool_called, tool: "skills__read_skill"}
+  - {type: tool_called, tool: "excel__write_sheet"}

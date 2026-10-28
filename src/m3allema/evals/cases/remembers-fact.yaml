@@ -1,0 +1,6 @@
+category: memory_skills
+task: >-
+  Please remember this for the future: Cairo Hotel always pays invoices 30 days after
+  delivery.
+checks:
+  - {type: approval_asked, tool: "memory__remember"}

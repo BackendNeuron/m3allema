@@ -1,0 +1,7 @@
+category: language
+task: كام فاتورة في ملف invoices.txt؟
+files:
+  invoices.txt: "INV-1 Nour Bakery 500\nINV-2 Delta Cafe 700\nINV-3 Cairo Hotel 900\nINV-4 Zamalek Gym 300"
+checks:
+  - {type: answer_matches, pattern: "[؀-ۿ]"}
+  - {type: answer_matches, pattern: "(4|٤|أربع|اربع)"}

@@ -1,0 +1,13 @@
+.git
+.venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
+**/__pycache__
+.env
+.m3allema
+.dev-workspace
+workspace
+eval-report
+web/node_modules
+.npm-cache
